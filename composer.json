@@ -1,0 +1,16 @@
+{
+    "name": "balsama/team_do_stats",
+    "description": "Gathers stats from D.O for reporting",
+    "type": "project",
+    "require": {
+        "guzzlehttp/guzzle": "^6.3",
+        "mathieuviossat/arraytotexttable": "~1.0.0"
+    },
+    "license": "GPL-2.0-or-later",
+    "minimum-stability": "dev",
+    "autoload": {
+        "psr-4": {
+            "Balsama\\DoStats\\": "src/DoStats"
+        }
+    }
+}
