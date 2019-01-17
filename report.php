@@ -1,13 +1,12 @@
 <?php
 
 /**
- * Prints formatted table of all issues in $git_log and summary to stdout.
- * Requires a file containing Drupal-project-formatted commit messages to
- * instantiate the Update class.
+ * Prints formatted table of all issues found in configured repositories
+ * and summary to stdout.
  */
 
 include_once 'vendor/autoload.php';
 
-$update = new Balsama\DoStats\Update();
+$update = new Balsama\DoStats\GitLogStats();
 
 echo $update->getTable() . $update->getSummary();

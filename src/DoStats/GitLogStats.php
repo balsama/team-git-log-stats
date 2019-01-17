@@ -5,18 +5,27 @@ namespace Balsama\DoStats;
 use Gitonomy\Git\Repository;
 use Gitonomy\Git\Admin;
 use GuzzleHttp\Client;
+use MathieuViossat\Util\ArrayToTextTable;
 use Psr\Http\Message\ResponseInterface;
-use Symfony\Component\Filesystem\Filesystem;
-use Symfony\Component\Process\Process;
 use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Output\ConsoleOutput;
-use MathieuViossat\Util\ArrayToTextTable;
+use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Component\Process\Process;
 use Symfony\Component\Yaml;
 
-class Update {
+class GitLogStats {
 
     /* @var \GuzzleHttp\ClientInterface */
     protected $client;
+
+    /* @var $fs \Symfony\Component\Filesystem\Filesystem */
+    protected $fs;
+
+    /* @var \Symfony\Component\Console\Output\Output */
+    protected $output;
+
+    /* @var \Symfony\Component\Console\Helper\ProgressBar */
+    protected $progressBar;
 
     /* @var string */
     protected $base_url = 'https://www.drupal.org/api-d7/node/';
@@ -27,17 +36,21 @@ class Update {
     /* @var array (int) */
     protected $issue_numbers;
 
-    /* @var $fs \Symfony\Component\Filesystem\Filesystem */
-    protected $fs;
-
     /* @var string[] */
     protected $logCommandOptions = [];
 
-    /* @var string[] */
+    protected $log;
+
+    /**
+     * An array of committer usernames.
+     *
+     * @var string[]
+     */
     protected $committers = [];
 
     /**
      * A list of all repos to scan for commits along with the branch.
+     *
      * @var array
      */
     protected $repos_to_scan = [];
@@ -58,22 +71,12 @@ class Update {
      */
     protected $repos = [];
 
-    /* @var \Symfony\Component\Console\Output\Output */
-    protected $output;
-
-    /* @var \Symfony\Component\Console\Helper\ProgressBar */
-    protected $progressBar;
-
-    public function __construct()
-    {
-        $this->getConfig();
-        $this->createProgressBar();
-        $this->output = new ConsoleOutput();
-        $this->client = new Client();
-        $this->fs = new Filesystem();
+    public function __construct() {
+        $this->setupTools();
+        $this->parseConfig();
+        $this->initProgressBar();
         $this->cloneAndUpdateRepos();
         $this->generateLog();
-        $this->issue_numbers = $this->getIssueNumbers('log.txt');
         $this->gatherAllIssueData();
     }
 
@@ -102,11 +105,45 @@ class Update {
     }
 
     /**
+     * Clones local copies of the repos and checks out the defined branch.
+     */
+    protected function cloneAndUpdateRepos() {
+        $this->fs->mkdir('./repos');
+        $this->instantiateProgressBar(count($this->repos_to_scan), 'Setting up repos');
+        foreach ($this->repos_to_scan as $name => $info) {
+            $this->updateProgressBarWithDetail($name);
+            if (!$this->fs->exists('./repos/' . $name)) {
+                $this->output->writeln("$name is new. Cloning.");
+                Admin::cloneTo('./repos/' . $name, $info['url'], false);
+            }
+            $this->repos[$name] = new Repository('./repos/' . $name);
+            $this->repos[$name]->run('fetch');
+            $this->repos[$name]->run('checkout', [$info['branch']]);
+            $this->repos[$name]->run('pull');
+        }
+        $this->progressBar->finish();
+        $this->output->writeln('Finished setting up repos');
+    }
+
+    /**
+     * Creates the git log based on the repos and committers.
+     */
+    protected function generateLog() {
+        $this->setLogCommandOptions();
+
+        $this->instantiateProgressBar(count($this->repos_to_scan), 'Writing git log for repos:');
+
+        foreach ($this->repos_to_scan as $name => $info) {
+            $this->appendGitLog($name);
+            $this->progressBar->advance();
+        }
+
+        $this->progressBar->finish();
+        $this->output->writeln('Done writing git logs');
+    }
+
+    /**
      * Finds issue numbers from Drupal commit messages.
-     *
-     * @param string $git_log
-     *   Full path to a file containing git log of a repo with D.O formatted
-     *   commit messages.
      *
      * @return array
      *   An array of issue numbers contained in the Class git_log.
@@ -114,8 +151,8 @@ class Update {
      * @throws \HttpInvalidParamException
      *   If no issue numbers are found.
      */
-    protected function getIssueNumbers($git_log) {
-        $blob = file_get_contents($git_log);
+    protected function getIssueNumbers() {
+        $blob = $this->log;
         preg_match_all('/ Issue #[0-9.]*/', $blob, $matches);
         if (empty($matches)) {
             throw new \HttpInvalidParamException('Cannot find any issue numbers in commit log.');
@@ -131,6 +168,7 @@ class Update {
      * Gets and stores issue data about all issue numbers.
      */
     protected function gatherAllIssueData() {
+        $this->issue_numbers = $this->getIssueNumbers($this->log);
         $this->instantiateProgressBar(count($this->issue_numbers), 'Fetching data about issues');
         foreach ($this->issue_numbers as $issue_number) {
             $this->updateProgressBarWithDetail('Issue #' . $issue_number);
@@ -283,49 +321,7 @@ class Update {
     }
 
     /**
-     * Clones local copies of the repos and checks out the defined branch.
-     */
-    protected function cloneAndUpdateRepos() {
-        $this->fs->mkdir('./repos');
-        $this->instantiateProgressBar(count($this->repos_to_scan), 'Setting up repos');
-        foreach ($this->repos_to_scan as $name => $info) {
-            $this->updateProgressBarWithDetail($name);
-            if (!$this->fs->exists('./repos/' . $name)) {
-                $this->output->writeln("$name is new. Cloning.");
-                Admin::cloneTo('./repos/' . $name, $info['url'], false);
-            }
-            $this->repos[$name] = new Repository('./repos/' . $name);
-            $this->repos[$name]->run('fetch');
-            $this->repos[$name]->run('checkout', [$info['branch']]);
-            $this->repos[$name]->run('pull');
-        }
-        $this->progressBar->finish();
-        $this->output->writeln('Finished setting up repos');
-    }
-
-    /**
-     * Creates the git log based on the repos and committers.
-     */
-    protected function generateLog() {
-        if ($this->fs->exists('log.txt')) {
-            $this->fs->remove('log.txt');
-        }
-        $this->fs->touch('log.txt');
-        $this->setLogCommandOptions();
-
-        $this->instantiateProgressBar(count($this->repos_to_scan), 'Writing git log for repos:');
-
-        foreach ($this->repos_to_scan as $name => $info) {
-            $this->appendGitLog($name);
-            $this->progressBar->advance();
-        }
-
-        $this->progressBar->finish();
-        $this->output->writeln('Done writing git logs');
-    }
-
-    /**
-     * Adds the give repo's log output to the log.txt file.
+     * Adds the give repo's log output to the $this->log.
      *
      * @param $repo string
      *   The name of the repo
@@ -334,7 +330,7 @@ class Update {
         $process = new Process($this->logCommandOptions, './repos/' . $repo);
         $process->run();
         $log = $process->getOutput();
-        $this->fs->appendToFile('log.txt', $log);
+        $this->log .= $log;
     }
 
     /**
@@ -366,7 +362,7 @@ class Update {
         return $string;
     }
 
-    protected function createProgressBar() {
+    protected function initProgressBar() {
         $output = new ConsoleOutput();
         $this->progressBar = new ProgressBar($output);
         $this->progressBar->setFormatDefinition('custom', "\n%message% \n %current%/%max% |%bar%| \n %detail% \n");
@@ -396,13 +392,19 @@ class Update {
     }
 
     /**
-     * Gets the config from yaml files.
+     * Parses the config from yaml files.
      */
-    protected function getConfig() {
+    protected function parseConfig() {
         $yaml = new Yaml\Yaml();
         $this->committers = $yaml::parseFile('./config/committers.yml');
         $this->repos_to_scan = $yaml::parseFile('./config/repos.yml');
         $this->date_range = $yaml::parseFile('./config/date.range.yml');
+    }
+
+    protected function setupTools() {
+        $this->output = new ConsoleOutput();
+        $this->client = new Client();
+        $this->fs = new Filesystem();
     }
 
 }
