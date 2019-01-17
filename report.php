@@ -10,8 +10,4 @@ include_once 'vendor/autoload.php';
 
 $update = new Balsama\DoStats\Update();
 
-$update->getAllIssueData();
-$table = $update->formatAllIssueData();
-$summary = $update->summarizeIssueData();
-
-echo $table . $summary;
+echo $update->getTable() . $update->getSummary();

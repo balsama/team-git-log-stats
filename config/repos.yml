@@ -1,0 +1,27 @@
+claro:
+    url: 'git@git.drupal.org:project/claro.git'
+    branch: 8.x-1.x
+drupal:
+    url: 'https://git.drupal.org/project/drupal.git'
+    branch: 8.7.x
+lightning:
+    url: 'git@git.drupal.org:project/lightning.git'
+    branch: 8.x-3.x
+lightning_api:
+    url: 'git@git.drupal.org:project/lightning_api.git'
+    branch: 8.x-3.x
+lightning_core:
+    url: 'git@git.drupal.org:project/lightning_core.git'
+    branch: 8.x-3.x
+lightning_layout:
+    url: 'git@git.drupal.org:project/lightning_layout.git'
+    branch: 8.x-1.x
+lightning_media:
+    url: 'git@git.drupal.org:project/lightning_media.git'
+    branch: 8.x-3.x
+lightning_workflow:
+    url: 'git@git.drupal.org:project/lightning_workflow.git'
+    branch: 8.x-3.x
+js_admin:
+    url: 'https://github.com/jsdrupal/drupal-admin-ui.git'
+    branch: master

@@ -11,6 +11,7 @@ use Symfony\Component\Process\Process;
 use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Output\ConsoleOutput;
 use MathieuViossat\Util\ArrayToTextTable;
+use Symfony\Component\Yaml;
 
 class Update {
 
@@ -18,78 +19,37 @@ class Update {
     protected $client;
 
     /* @var string */
-    protected $base_url;
-
-    /* @var int */
-    protected $timestamp;
+    protected $base_url = 'https://www.drupal.org/api-d7/node/';
 
     /* @var array */
-    protected $issue_data;
+    protected $issue_data = [];
 
     /* @var array (int) */
     protected $issue_numbers;
 
-
     /* @var $fs \Symfony\Component\Filesystem\Filesystem */
     protected $fs;
 
-    /* @var array (string) */
-    protected $committers = [
-        'plunkett',
-        'plunkett',
-        'mortenson',
-        'phenaproxima',
-        'DyanneNova',
-        'Wim Leers',
-        'drpal',
-        'gabesullice',
-        'balsama',
-        'huzooka',
-        'bendeguz.csirmaz',
-    ];
+    /* @var string[] */
+    protected $logCommandOptions = [];
+
+    /* @var string[] */
+    protected $committers = [];
 
     /**
      * A list of all repos to scan for commits along with the branch.
      * @var array
      */
-    protected $repos_to_scan = [
-        'claro' => [
-            'url' => 'git@git.drupal.org:project/claro.git',
-            'branch' => '8.x-1.x',
-        ],
-        'drupal' => [
-            'url' => 'https://git.drupal.org/project/drupal.git',
-            'branch' => '8.7.x',
-        ],
-        'lightning' => [
-            'url' => 'git@git.drupal.org:project/lightning.git',
-            'branch' => '8.x-3.x',
-        ],
-        'lightning_api' => [
-            'url' => 'git@git.drupal.org:project/lightning_api.git',
-            'branch' => '8.x-3.x',
-        ],
-        'lightning_core' => [
-            'url' => 'git@git.drupal.org:project/lightning_core.git',
-            'branch' => '8.x-3.x',
-        ],
-        'lightning_layout' => [
-            'url' => 'git@git.drupal.org:project/lightning_layout.git',
-            'branch' => '8.x-1.x',
-        ],
-        'lightning_media' => [
-            'url' => 'git@git.drupal.org:project/lightning_media.git',
-            'branch' => '8.x-3.x',
-        ],
-        'lightning_workflow' => [
-            'url' => 'git@git.drupal.org:project/lightning_workflow.git',
-            'branch' => '8.x-3.x',
-        ],
-        'js_admin' => [
-            'url' => 'https://github.com/jsdrupal/drupal-admin-ui.git',
-            'branch' => 'master',
-        ]
-    ];
+    protected $repos_to_scan = [];
+
+    /**
+     * Date range for commits.
+     * @var array
+     *
+     * Array format:
+     * ['after' => 'Y-M-d', 'before' => Y-M-d']
+     */
+    protected $date_range;
 
     /**
      * An array of Repository objects to scan for commits.
@@ -98,34 +58,47 @@ class Update {
      */
     protected $repos = [];
 
-    /**
-     * The path to the git log of commits credited by our team. Generate it
-     * with for each repo and merge the results:
-     * `git log --oneline --after=2018-03-31 --before=2018-07-01 --grep="plunkett" --grep="plunkett" --grep="mortenson" --grep="phenaproxima" --grep="DyanneNova" --grep="Wim Leers" --grep="drpal" --grep="gabesullice" --grep="balsama" --grep="huzooka"`
-     *
-     * @var string
-     */
-    protected $git_log;
-
+    /* @var \Symfony\Component\Console\Output\Output */
     protected $output;
 
+    /* @var \Symfony\Component\Console\Helper\ProgressBar */
     protected $progressBar;
 
     public function __construct()
     {
+        $this->getConfig();
+        $this->createProgressBar();
         $this->output = new ConsoleOutput();
-        $this->progressBar = new ProgressBar($this->output);
-        $this->progressBar->setFormatDefinition('custom', "\n%message% \n %current%/%max% |%bar%| \n\n");
-        $this->progressBar->setFormat('custom');
         $this->client = new Client();
-        $this->base_url = 'https://www.drupal.org/api-d7/node/';
-        $this->timestamp = date('Y-m-d-i-s');
-        $this->issue_data = [];
         $this->fs = new Filesystem();
-        $this->fs->mkdir(getcwd()  . '/repos');
         $this->cloneAndUpdateRepos();
         $this->generateLog();
         $this->issue_numbers = $this->getIssueNumbers('log.txt');
+        $this->gatherAllIssueData();
+    }
+
+    /**
+     * @return string
+     *   A formatted table of all issues.
+     */
+    public function getTable() {
+        return $this->formatAllIssueData();
+    }
+
+    /**
+     * @return string
+     *   A summary of issues and story points.
+     */
+    public function getSummary() {
+        return $this->summarizeIssueData();
+    }
+
+    /**
+     * @return array
+     *   Arroy of data about the issues in the log.
+     */
+    public function getAllIssueData() {
+        return $this->issue_data;
     }
 
     /**
@@ -141,7 +114,7 @@ class Update {
      * @throws \HttpInvalidParamException
      *   If no issue numbers are found.
      */
-    public function getIssueNumbers($git_log) {
+    protected function getIssueNumbers($git_log) {
         $blob = file_get_contents($git_log);
         preg_match_all('/ Issue #[0-9.]*/', $blob, $matches);
         if (empty($matches)) {
@@ -157,14 +130,11 @@ class Update {
     /**
      * Gets and stores issue data about all issue numbers.
      */
-    public function getAllIssueData() {
-        $count = count($this->issue_numbers);
-        $this->progressBar->setMaxSteps($count);
-        $this->progressBar->setMessage('Fetching data about issues.');
-        $this->progressBar->start($count);
+    protected function gatherAllIssueData() {
+        $this->instantiateProgressBar(count($this->issue_numbers), 'Fetching data about issues');
         foreach ($this->issue_numbers as $issue_number) {
+            $this->updateProgressBarWithDetail('Issue #' . $issue_number);
             $this->issue_data[] = $this->getIssueData($issue_number);
-            $this->progressBar->advance();
         }
         $this->progressBar->finish();
         $this->output->writeln('Finished fetching issue data');
@@ -177,7 +147,7 @@ class Update {
      * @return array
      *   An array of information about the issue.
      */
-    public function getIssueData($issue_number) {
+    protected function getIssueData($issue_number) {
         $response = $this->client->get($this->base_url . $issue_number . '.json');
         $body = json_decode($response->getBody());
         $issue_data = [
@@ -199,7 +169,7 @@ class Update {
      *
      * @throws \Exception
      */
-    public function formatAllIssueData() {
+    protected function formatAllIssueData() {
         if (empty($this->issue_data)) {
             throw new \Exception("No issue data collected yet. Perhaps you called this method before ::getIssueData?");
         }
@@ -213,7 +183,7 @@ class Update {
      * @return string
      *   Summarized issue data.
      */
-    public function summarizeIssueData() {
+    protected function summarizeIssueData() {
         $features_points = 0;
         $maintenance_points = 0;
         $other_points = 0;
@@ -312,19 +282,14 @@ class Update {
         return $size;
     }
 
-    protected function truncate($string, $length) {
-        if (strlen($string) > $length) {
-            $string = substr($string, 0, $length) . '...';
-        }
-        return $string;
-    }
-
+    /**
+     * Clones local copies of the repos and checks out the defined branch.
+     */
     protected function cloneAndUpdateRepos() {
-        $count = count($this->repos_to_scan);
-        $this->progressBar->setMessage('Setting up repos.');
-        $this->progressBar->setMaxSteps($count);
-        $this->progressBar->start();
+        $this->fs->mkdir('./repos');
+        $this->instantiateProgressBar(count($this->repos_to_scan), 'Setting up repos');
         foreach ($this->repos_to_scan as $name => $info) {
+            $this->updateProgressBarWithDetail($name);
             if (!$this->fs->exists('./repos/' . $name)) {
                 $this->output->writeln("$name is new. Cloning.");
                 Admin::cloneTo('./repos/' . $name, $info['url'], false);
@@ -333,49 +298,111 @@ class Update {
             $this->repos[$name]->run('fetch');
             $this->repos[$name]->run('checkout', [$info['branch']]);
             $this->repos[$name]->run('pull');
-            $this->progressBar->advance();
         }
         $this->progressBar->finish();
         $this->output->writeln('Finished setting up repos');
     }
 
+    /**
+     * Creates the git log based on the repos and committers.
+     */
     protected function generateLog() {
         if ($this->fs->exists('log.txt')) {
             $this->fs->remove('log.txt');
         }
         $this->fs->touch('log.txt');
+        $this->setLogCommandOptions();
 
-        $count = count($this->repos_to_scan);
-        $this->progressBar->setMessage('Writing git log for repos.');
-        $this->progressBar->setMaxSteps($count);
+        $this->instantiateProgressBar(count($this->repos_to_scan), 'Writing git log for repos:');
 
         foreach ($this->repos_to_scan as $name => $info) {
             $this->appendGitLog($name);
             $this->progressBar->advance();
         }
+
         $this->progressBar->finish();
         $this->output->writeln('Done writing git logs');
     }
 
     /**
+     * Adds the give repo's log output to the log.txt file.
+     *
      * @param $repo string
+     *   The name of the repo
      */
     protected function appendGitLog($repo) {
-        $options = [
-            'git',
-            'log',
-            '--oneline',
-            '--after=2018-09-30',
-            '--before=2019-01-01',
-        ];
-        foreach ($this->committers as $committer) {
-            $options[] = '--grep=' . $committer;
-        }
-
-        $process = new Process($options, './repos/' . $repo);
+        $process = new Process($this->logCommandOptions, './repos/' . $repo);
         $process->run();
         $log = $process->getOutput();
         $this->fs->appendToFile('log.txt', $log);
+    }
+
+    /**
+     * Generates the git log command and options.
+     * @return array
+     */
+    protected function setLogCommandOptions() {
+        $base = ['git', 'log', '--oneline'];
+        $date = ['--after=' . $this->date_range['after'], '--before=' . $this->date_range['before']];
+        $committers = [];
+        foreach ($this->committers as $committer) {
+            $committers[] = '--grep=' . $committer;
+        }
+        $this->logCommandOptions = array_merge($base, $date, $committers);
+    }
+
+    /**
+     * Helper function to truncate a stringth at a given length and add an
+     * elipsis at the end if it was truncated.
+     *
+     * @param $string string
+     * @param $length int
+     * @return string
+     */
+    protected function truncate($string, $length) {
+        if (strlen($string) > $length) {
+            $string = substr($string, 0, $length) . '...';
+        }
+        return $string;
+    }
+
+    protected function createProgressBar() {
+        $output = new ConsoleOutput();
+        $this->progressBar = new ProgressBar($output);
+        $this->progressBar->setFormatDefinition('custom', "\n%message% \n %current%/%max% |%bar%| \n %detail% \n");
+        $this->progressBar->setFormat('custom');
+    }
+
+    /**
+     * Wrapper function around Symfony Progress Bar instatiation methods.
+     *
+     * @param $count int
+     * @param $message string
+     */
+    protected function instantiateProgressBar($count, $message) {
+        $this->progressBar->setMessage($message);
+        $this->progressBar->setMessage('', 'detail');
+        $this->progressBar->setMaxSteps($count);
+        $this->progressBar->start();
+    }
+
+    /**
+     * Wrapper function around progress bar update methods.
+     * @param $detail string
+     */
+    protected function updateProgressBarWithDetail($detail) {
+        $this->progressBar->setMessage($detail, 'detail');
+        $this->progressBar->advance();
+    }
+
+    /**
+     * Gets the config from yaml files.
+     */
+    protected function getConfig() {
+        $yaml = new Yaml\Yaml();
+        $this->committers = $yaml::parseFile('./config/committers.yml');
+        $this->repos_to_scan = $yaml::parseFile('./config/repos.yml');
+        $this->date_range = $yaml::parseFile('./config/date.range.yml');
     }
 
 }
