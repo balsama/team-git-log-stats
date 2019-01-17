@@ -8,11 +8,7 @@
 
 include_once 'vendor/autoload.php';
 
-if (empty($argv[1])) {
-    throw new InvalidArgumentException('You must pass file and path containing git logs to this script.');
-}
-
-$update = new Balsama\DoStats\Update($argv[1]);
+$update = new Balsama\DoStats\Update();
 
 $update->getAllIssueData();
 $table = $update->formatAllIssueData();

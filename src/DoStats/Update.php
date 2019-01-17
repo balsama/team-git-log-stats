@@ -2,8 +2,14 @@
 
 namespace Balsama\DoStats;
 
+use Gitonomy\Git\Repository;
+use Gitonomy\Git\Admin;
 use GuzzleHttp\Client;
 use Psr\Http\Message\ResponseInterface;
+use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Component\Process\Process;
+use Symfony\Component\Console\Helper\ProgressBar;
+use Symfony\Component\Console\Output\ConsoleOutput;
 use MathieuViossat\Util\ArrayToTextTable;
 
 class Update {
@@ -23,6 +29,10 @@ class Update {
     /* @var array (int) */
     protected $issue_numbers;
 
+
+    /* @var $fs \Symfony\Component\Filesystem\Filesystem */
+    protected $fs;
+
     /* @var array (string) */
     protected $committers = [
         'plunkett',
@@ -38,17 +48,55 @@ class Update {
         'bendeguz.csirmaz',
     ];
 
-    /* @var array (string) */
-    protected $repos = [
-        'Drupal' => 'https://git.drupal.org/project/drupal.git',
-        'Lightning' => 'git@git.drupal.org:project/lightning.git',
-        'Lightning API' => 'git@git.drupal.org:project/lightning_api.git',
-        'Lightning Core' => 'git@git.drupal.org:project/lightning_core.git',
-        'Lightning Layout' => 'git@git.drupal.org:project/lightning_layout.git',
-        'Lightning Media' => 'git@git.drupal.org:project/lightning_media.git',
-        'Lightning Workflow' => 'git@git.drupal.org:project/lightning_workflow.git',
-        'Claro' => 'git@git.drupal.org:project/claro.git',
+    /**
+     * A list of all repos to scan for commits along with the branch.
+     * @var array
+     */
+    protected $repos_to_scan = [
+        'claro' => [
+            'url' => 'git@git.drupal.org:project/claro.git',
+            'branch' => '8.x-1.x',
+        ],
+        'drupal' => [
+            'url' => 'https://git.drupal.org/project/drupal.git',
+            'branch' => '8.7.x',
+        ],
+        'lightning' => [
+            'url' => 'git@git.drupal.org:project/lightning.git',
+            'branch' => '8.x-3.x',
+        ],
+        'lightning_api' => [
+            'url' => 'git@git.drupal.org:project/lightning_api.git',
+            'branch' => '8.x-3.x',
+        ],
+        'lightning_core' => [
+            'url' => 'git@git.drupal.org:project/lightning_core.git',
+            'branch' => '8.x-3.x',
+        ],
+        'lightning_layout' => [
+            'url' => 'git@git.drupal.org:project/lightning_layout.git',
+            'branch' => '8.x-1.x',
+        ],
+        'lightning_media' => [
+            'url' => 'git@git.drupal.org:project/lightning_media.git',
+            'branch' => '8.x-3.x',
+        ],
+        'lightning_workflow' => [
+            'url' => 'git@git.drupal.org:project/lightning_workflow.git',
+            'branch' => '8.x-3.x',
+        ],
+        'js_admin' => [
+            'url' => 'https://github.com/jsdrupal/drupal-admin-ui.git',
+            'branch' => 'master',
+        ]
     ];
+
+    /**
+     * An array of Repository objects to scan for commits.
+     *
+     * @var \Gitonomy\Git\Repository []
+     */
+    protected $repos = [];
 
     /**
      * The path to the git log of commits credited by our team. Generate it
@@ -59,14 +107,25 @@ class Update {
      */
     protected $git_log;
 
-    public function __construct($git_log)
+    protected $output;
+
+    protected $progressBar;
+
+    public function __construct()
     {
+        $this->output = new ConsoleOutput();
+        $this->progressBar = new ProgressBar($this->output);
+        $this->progressBar->setFormatDefinition('custom', "\n%message% \n %current%/%max% |%bar%| \n\n");
+        $this->progressBar->setFormat('custom');
         $this->client = new Client();
         $this->base_url = 'https://www.drupal.org/api-d7/node/';
         $this->timestamp = date('Y-m-d-i-s');
         $this->issue_data = [];
-        $this->git_log = $git_log;
-        $this->issue_numbers = $this->getIssueNumbers($this->git_log);
+        $this->fs = new Filesystem();
+        $this->fs->mkdir(getcwd()  . '/repos');
+        $this->cloneAndUpdateRepos();
+        $this->generateLog();
+        $this->issue_numbers = $this->getIssueNumbers('log.txt');
     }
 
     /**
@@ -99,9 +158,16 @@ class Update {
      * Gets and stores issue data about all issue numbers.
      */
     public function getAllIssueData() {
+        $count = count($this->issue_numbers);
+        $this->progressBar->setMaxSteps($count);
+        $this->progressBar->setMessage('Fetching data about issues.');
+        $this->progressBar->start($count);
         foreach ($this->issue_numbers as $issue_number) {
             $this->issue_data[] = $this->getIssueData($issue_number);
+            $this->progressBar->advance();
         }
+        $this->progressBar->finish();
+        $this->output->writeln('Finished fetching issue data');
     }
 
     /**
@@ -120,6 +186,7 @@ class Update {
             'Issue ID' => $body->nid,
             'Category' => $this->mapCategory($body->field_issue_category),
             'Size' => $this->mapSizeFromCommentCount(count($body->comments)),
+            'Project' => $body->field_project->machine_name,
         ];
         return $issue_data;
     }
@@ -250,6 +317,65 @@ class Update {
             $string = substr($string, 0, $length) . '...';
         }
         return $string;
+    }
+
+    protected function cloneAndUpdateRepos() {
+        $count = count($this->repos_to_scan);
+        $this->progressBar->setMessage('Setting up repos.');
+        $this->progressBar->setMaxSteps($count);
+        $this->progressBar->start();
+        foreach ($this->repos_to_scan as $name => $info) {
+            if (!$this->fs->exists('./repos/' . $name)) {
+                $this->output->writeln("$name is new. Cloning.");
+                Admin::cloneTo('./repos/' . $name, $info['url'], false);
+            }
+            $this->repos[$name] = new Repository('./repos/' . $name);
+            $this->repos[$name]->run('fetch');
+            $this->repos[$name]->run('checkout', [$info['branch']]);
+            $this->repos[$name]->run('pull');
+            $this->progressBar->advance();
+        }
+        $this->progressBar->finish();
+        $this->output->writeln('Finished setting up repos');
+    }
+
+    protected function generateLog() {
+        if ($this->fs->exists('log.txt')) {
+            $this->fs->remove('log.txt');
+        }
+        $this->fs->touch('log.txt');
+
+        $count = count($this->repos_to_scan);
+        $this->progressBar->setMessage('Writing git log for repos.');
+        $this->progressBar->setMaxSteps($count);
+
+        foreach ($this->repos_to_scan as $name => $info) {
+            $this->appendGitLog($name);
+            $this->progressBar->advance();
+        }
+        $this->progressBar->finish();
+        $this->output->writeln('Done writing git logs');
+    }
+
+    /**
+     * @param $repo string
+     */
+    protected function appendGitLog($repo) {
+        $options = [
+            'git',
+            'log',
+            '--oneline',
+            '--after=2018-09-30',
+            '--before=2019-01-01',
+        ];
+        foreach ($this->committers as $committer) {
+            $options[] = '--grep=' . $committer;
+        }
+
+        $process = new Process($options, './repos/' . $repo);
+        $process->run();
+        $log = $process->getOutput();
+        $this->fs->appendToFile('log.txt', $log);
     }
 
 }
