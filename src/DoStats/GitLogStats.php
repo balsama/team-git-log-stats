@@ -7,6 +7,7 @@ use Gitonomy\Git\Admin;
 use GuzzleHttp\Client;
 use MathieuViossat\Util\ArrayToTextTable;
 use Psr\Http\Message\ResponseInterface;
+use Symfony\Component\Console\Exception\InvalidArgumentException;
 use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Filesystem\Filesystem;
@@ -222,6 +223,7 @@ class GitLogStats {
      *   Summarized issue data.
      */
     protected function summarizeIssueData() {
+        $issue_count = count($this->issue_numbers);
         $features_points = 0;
         $maintenance_points = 0;
         $other_points = 0;
@@ -236,7 +238,7 @@ class GitLogStats {
                 $other_points = ($other_points + (int) $issue_datum['Size']);
             }
         }
-        return "\n" . 'Feature points: ' . $features_points . "\n" . 'Maintenance points: ' . $maintenance_points . "\n" . 'Other points: ' . $other_points . "\n";
+        return "\n" . 'Issues: ' . $issue_count . "\n" . 'Feature points: ' . $features_points . "\n" . 'Maintenance points: ' . $maintenance_points . "\n" . 'Other points: ' . $other_points . "\n";
     }
 
     /**
@@ -398,7 +400,57 @@ class GitLogStats {
         $yaml = new Yaml\Yaml();
         $this->committers = $yaml::parseFile('./config/committers.yml');
         $this->repos_to_scan = $yaml::parseFile('./config/repos.yml');
-        $this->date_range = $yaml::parseFile('./config/date.range.yml');
+        $dates = $yaml::parseFile('./config/date.range.yml');
+        $this->date_range = $this->parseDateRange($dates);
+    }
+
+    /**
+     * Parses the start and end time of the git logs were interested in from one
+     * of two formats.
+     * @param $dates array
+     *   An array of before and after or year and quarter values.
+     * @return mixed
+     *   Normalized array of after and before timestamps.
+     */
+    protected function parseDateRange($dates) {
+        $date_keys = array_keys($dates);
+        if ($date_keys == ['after', 'before']) {
+            return $dates;
+        }
+        elseif ($date_keys == ['quarter', 'year']) {
+            if (!is_numeric($dates['quarter']) || (!is_numeric($dates['year']))) {
+                throw new InvalidArgumentException('Year and quarter values must both be numeric.');
+            }
+            switch ($dates['quarter']) {
+                case 1:
+                    $dates['after'] = ($dates['year'] - 1) . '-12-31';
+                    $dates['before'] = $dates['year'] . '-04-01';
+                    break;
+                case 2:
+                    $dates['after'] = $dates['year'] . '-03-31';
+                    $dates['before'] = $dates['year'] . '-07-01';
+                    break;
+                case 3:
+                    $dates['after'] = $dates['year'] . '-06-30';
+                    $dates['before'] = $dates['year'] . '-10-01';
+                    break;
+                case 4:
+                    $dates['after'] = $dates['year'] . '-09-30';
+                    $dates['before'] = ($dates['year'] + 1) . '-01-01';
+                    break;
+            }
+            $dates['after'] = $this->handleTimezone($dates['after']);
+            $dates['before'] = $this->handleTimezone($dates['before']);
+            return $dates;
+        }
+        else {
+            throw new InvalidArgumentException('Date config must provide either "before" and "after" or "quarter" and "year" values.');
+        }
+    }
+
+    protected function handleTimezone($date, $format = 'U') {
+        $dt = new \DateTime($date, new \DateTimeZone('UTC'));
+        return $dt->format($format);
     }
 
     protected function setupTools() {
