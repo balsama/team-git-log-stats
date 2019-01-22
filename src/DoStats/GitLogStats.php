@@ -22,9 +22,6 @@ class GitLogStats {
     /* @var $fs \Symfony\Component\Filesystem\Filesystem */
     protected $fs;
 
-    /* @var \Symfony\Component\Console\Output\Output */
-    protected $output;
-
     /* @var \Symfony\Component\Console\Helper\ProgressBar */
     protected $progressBar;
 
@@ -40,6 +37,7 @@ class GitLogStats {
     /* @var string[] */
     protected $logCommandOptions = [];
 
+    /* @var string */
     protected $log;
 
     /**
@@ -114,7 +112,6 @@ class GitLogStats {
         foreach ($this->repos_to_scan as $name => $info) {
             $this->updateProgressBarWithDetail($name);
             if (!$this->fs->exists('./repos/' . $name)) {
-                $this->output->writeln("$name is new. Cloning.");
                 Admin::cloneTo('./repos/' . $name, $info['url'], false);
             }
             $this->repos[$name] = new Repository('./repos/' . $name);
@@ -123,7 +120,6 @@ class GitLogStats {
             $this->repos[$name]->run('pull');
         }
         $this->progressBar->finish();
-        $this->output->writeln('Finished setting up repos');
     }
 
     /**
@@ -140,7 +136,6 @@ class GitLogStats {
         }
 
         $this->progressBar->finish();
-        $this->output->writeln('Done writing git logs');
     }
 
     /**
@@ -176,7 +171,6 @@ class GitLogStats {
             $this->issue_data[] = $this->getIssueData($issue_number);
         }
         $this->progressBar->finish();
-        $this->output->writeln('Finished fetching issue data');
     }
 
     /**
@@ -189,15 +183,25 @@ class GitLogStats {
     protected function getIssueData($issue_number) {
         $response = $this->client->get($this->base_url . $issue_number . '.json');
         $body = json_decode($response->getBody());
-        $issue_data = [
+        if ($body->type != 'project_issue') {
+            // Handle commit messages which might point to non-project_issues.
+            return [
+                'Closed' => 'unknown',
+                'Title' => $this->truncate($body->title, 100),
+                'ID' => $body->nid,
+                'Category' => 'Other',
+                'Size' => $this->mapSizeFromCommentCount(count($body->comments)),
+                'Project' => 'unknown',
+            ];
+        }
+        return [
             'Closed' => date('Y-m-d', $body->field_issue_last_status_change),
             'Title' => $this->truncate($body->title, 100),
-            'Issue ID' => $body->nid,
+            'ID' => $body->nid,
             'Category' => $this->mapCategory($body->field_issue_category),
             'Size' => $this->mapSizeFromCommentCount(count($body->comments)),
             'Project' => $body->field_project->machine_name,
         ];
-        return $issue_data;
     }
 
     /**
@@ -454,7 +458,6 @@ class GitLogStats {
     }
 
     protected function setupTools() {
-        $this->output = new ConsoleOutput();
         $this->client = new Client();
         $this->fs = new Filesystem();
     }
