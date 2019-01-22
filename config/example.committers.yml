@@ -1,0 +1,15 @@
+# Copy this file to config/committers.yml and make changes as necessary.
+#
+# A list of Drupal.Org usernames of contributors you want to search Git logs
+# for.
+- tim.plunkett
+- tedbow
+- phenaproxima
+- DyanneNova
+- Wim Leers
+- drpal
+- gabesullice
+- balsama
+- huzooka
+- bendeguz.csirmaz
+- TravisCarden

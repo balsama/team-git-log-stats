@@ -1,0 +1,17 @@
+# Copy this file to config/date.range.yml and make changes as necessary.
+#
+# FORMAT:
+# Expects two key value pairs, either
+#  - `after` and `before`
+#     or
+#  - `quarter` and `year`.
+#
+# EXAMPLE
+#     after: 2018-09-30
+#     before: 2019-01-01
+#
+# EXAMPLE
+#     quarter: 3
+#     year: 2019
+quarter: 3
+year: 2019

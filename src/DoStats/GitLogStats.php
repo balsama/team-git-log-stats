@@ -7,6 +7,7 @@ use Gitonomy\Git\Admin;
 use GuzzleHttp\Client;
 use MathieuViossat\Util\ArrayToTextTable;
 use Psr\Http\Message\ResponseInterface;
+use Symfony\Component\Console\Exception\InvalidArgumentException;
 use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Filesystem\Filesystem;
@@ -20,9 +21,6 @@ class GitLogStats {
 
     /* @var $fs \Symfony\Component\Filesystem\Filesystem */
     protected $fs;
-
-    /* @var \Symfony\Component\Console\Output\Output */
-    protected $output;
 
     /* @var \Symfony\Component\Console\Helper\ProgressBar */
     protected $progressBar;
@@ -39,6 +37,7 @@ class GitLogStats {
     /* @var string[] */
     protected $logCommandOptions = [];
 
+    /* @var string */
     protected $log;
 
     /**
@@ -113,7 +112,6 @@ class GitLogStats {
         foreach ($this->repos_to_scan as $name => $info) {
             $this->updateProgressBarWithDetail($name);
             if (!$this->fs->exists('./repos/' . $name)) {
-                $this->output->writeln("$name is new. Cloning.");
                 Admin::cloneTo('./repos/' . $name, $info['url'], false);
             }
             $this->repos[$name] = new Repository('./repos/' . $name);
@@ -122,7 +120,6 @@ class GitLogStats {
             $this->repos[$name]->run('pull');
         }
         $this->progressBar->finish();
-        $this->output->writeln('Finished setting up repos');
     }
 
     /**
@@ -139,7 +136,6 @@ class GitLogStats {
         }
 
         $this->progressBar->finish();
-        $this->output->writeln('Done writing git logs');
     }
 
     /**
@@ -175,7 +171,6 @@ class GitLogStats {
             $this->issue_data[] = $this->getIssueData($issue_number);
         }
         $this->progressBar->finish();
-        $this->output->writeln('Finished fetching issue data');
     }
 
     /**
@@ -188,15 +183,25 @@ class GitLogStats {
     protected function getIssueData($issue_number) {
         $response = $this->client->get($this->base_url . $issue_number . '.json');
         $body = json_decode($response->getBody());
-        $issue_data = [
+        if ($body->type != 'project_issue') {
+            // Handle commit messages which might point to non-project_issues.
+            return [
+                'Closed' => 'unknown',
+                'Title' => $this->truncate($body->title, 100),
+                'ID' => $body->nid,
+                'Category' => 'Other',
+                'Size' => $this->mapSizeFromCommentCount(count($body->comments)),
+                'Project' => 'unknown',
+            ];
+        }
+        return [
             'Closed' => date('Y-m-d', $body->field_issue_last_status_change),
             'Title' => $this->truncate($body->title, 100),
-            'Issue ID' => $body->nid,
+            'ID' => $body->nid,
             'Category' => $this->mapCategory($body->field_issue_category),
             'Size' => $this->mapSizeFromCommentCount(count($body->comments)),
             'Project' => $body->field_project->machine_name,
         ];
-        return $issue_data;
     }
 
     /**
@@ -222,6 +227,7 @@ class GitLogStats {
      *   Summarized issue data.
      */
     protected function summarizeIssueData() {
+        $issue_count = count($this->issue_numbers);
         $features_points = 0;
         $maintenance_points = 0;
         $other_points = 0;
@@ -236,7 +242,7 @@ class GitLogStats {
                 $other_points = ($other_points + (int) $issue_datum['Size']);
             }
         }
-        return "\n" . 'Feature points: ' . $features_points . "\n" . 'Maintenance points: ' . $maintenance_points . "\n" . 'Other points: ' . $other_points . "\n";
+        return "\n" . 'Issues: ' . $issue_count . "\n" . 'Feature points: ' . $features_points . "\n" . 'Maintenance points: ' . $maintenance_points . "\n" . 'Other points: ' . $other_points . "\n";
     }
 
     /**
@@ -398,11 +404,60 @@ class GitLogStats {
         $yaml = new Yaml\Yaml();
         $this->committers = $yaml::parseFile('./config/committers.yml');
         $this->repos_to_scan = $yaml::parseFile('./config/repos.yml');
-        $this->date_range = $yaml::parseFile('./config/date.range.yml');
+        $dates = $yaml::parseFile('./config/date.range.yml');
+        $this->date_range = $this->parseDateRange($dates);
+    }
+
+    /**
+     * Parses the start and end time of the git logs were interested in from one
+     * of two formats.
+     * @param $dates array
+     *   An array of before and after or year and quarter values.
+     * @return mixed
+     *   Normalized array of after and before timestamps.
+     */
+    protected function parseDateRange($dates) {
+        $date_keys = array_keys($dates);
+        if ($date_keys == ['after', 'before']) {
+            return $dates;
+        }
+        elseif ($date_keys == ['quarter', 'year']) {
+            if (!is_numeric($dates['quarter']) || (!is_numeric($dates['year']))) {
+                throw new InvalidArgumentException('Year and quarter values must both be numeric.');
+            }
+            switch ($dates['quarter']) {
+                case 1:
+                    $dates['after'] = ($dates['year'] - 1) . '-12-31';
+                    $dates['before'] = $dates['year'] . '-04-01';
+                    break;
+                case 2:
+                    $dates['after'] = $dates['year'] . '-03-31';
+                    $dates['before'] = $dates['year'] . '-07-01';
+                    break;
+                case 3:
+                    $dates['after'] = $dates['year'] . '-06-30';
+                    $dates['before'] = $dates['year'] . '-10-01';
+                    break;
+                case 4:
+                    $dates['after'] = $dates['year'] . '-09-30';
+                    $dates['before'] = ($dates['year'] + 1) . '-01-01';
+                    break;
+            }
+            $dates['after'] = $this->handleTimezone($dates['after']);
+            $dates['before'] = $this->handleTimezone($dates['before']);
+            return $dates;
+        }
+        else {
+            throw new InvalidArgumentException('Date config must provide either "before" and "after" or "quarter" and "year" values.');
+        }
+    }
+
+    protected function handleTimezone($date, $format = 'U') {
+        $dt = new \DateTime($date, new \DateTimeZone('UTC'));
+        return $dt->format($format);
     }
 
     protected function setupTools() {
-        $this->output = new ConsoleOutput();
         $this->client = new Client();
         $this->fs = new Filesystem();
     }
