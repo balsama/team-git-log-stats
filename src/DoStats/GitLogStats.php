@@ -5,6 +5,7 @@ namespace Balsama\DoStats;
 use Gitonomy\Git\Repository;
 use Gitonomy\Git\Admin;
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\ServerException;
 use MathieuViossat\Util\ArrayToTextTable;
 use Psr\Http\Message\ResponseInterface;
 use Symfony\Component\Console\Exception\InvalidArgumentException;
@@ -26,7 +27,7 @@ class GitLogStats {
     protected $progressBar;
 
     /* @var string */
-    protected $base_url = 'https://www.drupal.org/api-d7/node/';
+    protected $base_url = 'https://www.drupal.org/api-d7/';
 
     /* @var array */
     protected $issue_data = [];
@@ -39,6 +40,35 @@ class GitLogStats {
 
     /* @var string */
     protected $log;
+
+    /**
+     * Arrays of contributor names keyed by the issue to which they contributed.
+     * E.g.:
+     * [12345] => ['user1', 'user2]
+     *
+     * @var array[]
+     */
+    protected $issueCreditsByContributor = [];
+
+    /**
+     * Arrays of issue numbers keyed by the contributor.
+     * E.g:
+     * ['username'] => [1234, 5678]
+     *
+     * @var array[]
+     */
+    protected $contributorIssues = [];
+
+    /**
+     * Arrays of contributor name, issue count, and total points suitable for
+     * passing off to a table formatter.
+     *
+     * @var array[]
+     */
+    protected $contributorPoints = [];
+
+    /* @var int */
+    protected $apiRequestCount = 0;
 
     /**
      * An array of committer usernames.
@@ -77,6 +107,7 @@ class GitLogStats {
         $this->cloneAndUpdateRepos();
         $this->generateLog();
         $this->gatherAllIssueData();
+        $this->calculateContributorPoints();
     }
 
     /**
@@ -96,11 +127,24 @@ class GitLogStats {
     }
 
     /**
+     * @return string
+     */
+    public function getCreditTable() {
+        return $this->formatCreditData();
+    }
+    /**
      * @return array
-     *   Arroy of data about the issues in the log.
+     *   Array of data about the issues in the log.
      */
     public function getAllIssueData() {
         return $this->issue_data;
+    }
+
+    /**
+     * @return string
+     */
+    public function getApiRequestCount() {
+        return "\n Total API Requests: $this->apiRequestCount \n";
     }
 
     /**
@@ -157,7 +201,7 @@ class GitLogStats {
         foreach ($matches[0] as $match) {
             $issue_numbers[] = substr($match, 8);
         }
-        return $issue_numbers;
+        return array_unique($issue_numbers);
     }
 
     /**
@@ -168,7 +212,7 @@ class GitLogStats {
         $this->instantiateProgressBar(count($this->issue_numbers), 'Fetching data about issues');
         foreach ($this->issue_numbers as $issue_number) {
             $this->updateProgressBarWithDetail('Issue #' . $issue_number);
-            $this->issue_data[] = $this->getIssueData($issue_number);
+            $this->issue_data[$issue_number] = $this->getIssueData($issue_number);
         }
         $this->progressBar->finish();
     }
@@ -181,8 +225,13 @@ class GitLogStats {
      *   An array of information about the issue.
      */
     protected function getIssueData($issue_number) {
-        $response = $this->client->get($this->base_url . $issue_number . '.json');
+        $response = $this->apiRequest('node', $issue_number);
         $body = json_decode($response->getBody());
+        $contributors = $this->getIssueContributors($body->field_issue_credit, $issue_number);
+        $truncatedContributors = [];
+        foreach ($contributors as $contributor) {
+            $truncatedContributors[] = substr($contributor, 0, 2);
+        }
         if ($body->type != 'project_issue') {
             // Handle commit messages which might point to non-project_issues.
             return [
@@ -201,7 +250,67 @@ class GitLogStats {
             'Category' => $this->mapCategory($body->field_issue_category),
             'Size' => $this->mapSizeFromCommentCount(count($body->comments)),
             'Project' => $body->field_project->machine_name,
+            'Contributors' => implode(', ', $truncatedContributors),
         ];
+    }
+
+    /**
+     * Returns a list of contributor names filtered by the committers.yml for a
+     * given issue.
+     *
+     * @param $creditComments
+     *   Array from the `field_issue_credit` field of an issue response from
+     *   Drupal.org's api. Expected to have `id` as a property.
+     * @param $parentIssue
+     *   The issue ID to which the comments belong.
+     * @return string[]
+     *   Array of contributor names.
+     */
+    protected function getIssueContributors($creditComments, $parentIssue) {
+        $contributors = [];
+        foreach ($creditComments as $creditComment) {
+            $response = $this->apiRequest('comment', $creditComment->id);
+            $body = json_decode($response->getBody());
+            $contributor = $body->name;
+            if (!in_array($contributor, $this->committers)) {
+                continue;
+            }
+            if (array_key_exists($parentIssue, $this->issueCreditsByContributor)) {
+                if (in_array($contributor, $this->issueCreditsByContributor[$parentIssue])) {
+                    continue;
+                }
+            }
+            $this->issueCreditsByContributor[$parentIssue][] = $contributor;
+            $this->contributorIssues[$contributor][] = $parentIssue;
+            $contributors[] = $contributor;
+        }
+        return $contributors;
+    }
+
+    protected function calculateContributorPoints() {
+        foreach ($this->contributorIssues as $contributorName => $contributorIssues) {
+            $total = 0;
+            $count = count($contributorIssues);
+            foreach ($contributorIssues as $contributorIssue) {
+                $total = $total + $this->getIssuePoints($contributorIssue);
+            }
+            $this->contributorPoints[] = [
+                'Name' => $contributorName,
+                'Issue Count' => $count,
+                'Points' => $total,
+            ];
+        }
+    }
+
+    /**
+     * Helper function to return the calculated size of an issue from the
+     * populated `issue_data` property.
+     *
+     * @param int $issueId
+     * @return int
+     */
+    protected function getIssuePoints($issueId) {
+        return $this->issue_data[$issueId]['Size'];
     }
 
     /**
@@ -220,6 +329,11 @@ class GitLogStats {
         return $renderer->getTable();
     }
 
+
+    protected function formatCreditData() {
+        $renderer = new ArrayToTextTable($this->contributorPoints);
+        return $renderer->getTable();
+    }
     /**
      * Summarizes issue data into # of points per category.
      *
@@ -243,6 +357,32 @@ class GitLogStats {
             }
         }
         return "\n" . 'Issues: ' . $issue_count . "\n" . 'Feature points: ' . $features_points . "\n" . 'Maintenance points: ' . $maintenance_points . "\n" . 'Other points: ' . $other_points . "\n";
+    }
+
+    /**
+     * Wrapper function around D.O API requests. Recursive to account for random
+     * 500s.
+     *
+     * @param string $entityType
+     *   E.g., 'node', or 'comment'
+     * @param int $entityId
+     * @param bool $retryOnError
+     *   Set to false to throw an exception on 500 errors.
+     *
+     * @return object
+     */
+    protected function apiRequest($entityType, $entityId, $retryOnError = true) {
+        try {
+            $response = $this->client->get($this->base_url . $entityType . '/' . $entityId . '.json');
+            $this->apiRequestCount++;
+            return $response;
+        }
+        catch (ServerException $e) {
+            if ($retryOnError) {
+                return $this->apiRequest($entityType, $entityId);
+            }
+            echo 'Caught response: ' . $e->getResponse()->getStatusCode();
+        }
     }
 
     /**
