@@ -7,6 +7,6 @@
 
 include_once 'vendor/autoload.php';
 
-$update = new Balsama\DoStats\GitLogStats();
+$update = new Balsama\DoStats\GitLogStats($argv);
 
-echo $update->getTable() . $update->getSummary() . $update->getCreditTable() . $update->getApiRequestCount();
+echo $update->getDateRange() . $update->getTable() . $update->getSummary() . $update->getCreditTable() . $update->getApiRequestCount();

@@ -42,6 +42,12 @@ class GitLogStats {
     protected $log;
 
     /**
+     * @var array
+     *   List of arguments that were passed to the script.
+     */
+    protected $arguments;
+
+    /**
      * Arrays of contributor names keyed by the issue to which they contributed.
      * E.g.:
      * [12345] => ['user1', 'user2]
@@ -100,7 +106,8 @@ class GitLogStats {
      */
     protected $repos = [];
 
-    public function __construct() {
+    public function __construct($arguments) {
+        $this->arguments = $arguments;
         $this->setupTools();
         $this->parseConfig();
         $this->initProgressBar();
@@ -108,6 +115,17 @@ class GitLogStats {
         $this->generateLog();
         $this->gatherAllIssueData();
         $this->calculateContributorPoints();
+    }
+
+    /**
+     * @return string
+     *   The date range used to generate the report.
+     */
+    public function getDateRange() {
+        $string = 'Week/Month/From: ' . array_values($this->date_range)[0] . ' Year/To: ' . array_values($this->date_range)[1];
+        $strlen = strlen($string);
+        $separator = str_repeat('*', ($strlen + 4));
+        return $separator . "\n* " . $string . " *\n" . $separator . "\n";
     }
 
     /**
@@ -550,14 +568,21 @@ class GitLogStats {
 
     /**
      * Parses the start and end time of the git logs were interested in from one
-     * of two formats.
+     * of three formats.
      * @param $dates array
-     *   An array of before and after or year and quarter values.
+     *   An array of before and after or year and quarter or week and year values.
      * @return mixed
      *   Normalized array of after and before timestamps.
      */
     protected function parseDateRange($dates) {
         $date_keys = array_keys($dates);
+
+        if (($this->arguments[1] === '-w') && ($this->arguments[3] === '-y')) {
+            $date_keys = ['week', 'year'];
+            $dates['year'] = $this->arguments[4];
+            $dates['week'] = $this->arguments[2];
+        }
+
         if ($date_keys == ['after', 'before']) {
             return $dates;
         }
@@ -587,8 +612,19 @@ class GitLogStats {
             $dates['before'] = $this->handleTimezone($dates['before']);
             return $dates;
         }
+        elseif ($date_keys == ['week', 'year']) {
+            $after_time = $dates['year'] . $this->formatWeekNumber($dates['week']);
+            $before_time = $dates['year'] . $this->formatWeekNumber($dates['week'], TRUE);
+            $after = date('Y-m-d', strtotime($after_time));
+            $before = date('Y-m-d', strtotime($before_time));
+            $dates['after'] = $after;
+            $dates['before'] = $before;
+            $dates['after'] = $this->handleTimezone($dates['after']);
+            $dates['before'] = $this->handleTimezone($dates['before']);
+            return $dates;
+        }
         else {
-            throw new InvalidArgumentException('Date config must provide either "before" and "after" or "quarter" and "year" values.');
+            throw new InvalidArgumentException('Date config must provide either "before" and "after",  "quarter" and "year", or "week" and "year" values.');
         }
     }
 
@@ -600,6 +636,17 @@ class GitLogStats {
     protected function setupTools() {
         $this->client = new Client();
         $this->fs = new Filesystem();
+    }
+
+    protected function formatWeekNumber($week_number, $following_week = FALSE) {
+        $week_number = (int) $week_number;
+        if ($following_week) {
+            $week_number++;
+        }
+        if ($week_number < 10) {
+            $week_number = '0' . $week_number;
+        }
+        return (string) 'W' . $week_number;
     }
 
 }

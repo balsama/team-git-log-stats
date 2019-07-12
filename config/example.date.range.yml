@@ -4,7 +4,9 @@
 # Expects two key value pairs, either
 #  - `after` and `before`
 #     or
-#  - `quarter` and `year`.
+#  - `quarter` and `year`
+#     or
+#  - `week` and `year`.]
 #
 # EXAMPLE
 #     after: 2018-09-30
@@ -13,5 +15,11 @@
 # EXAMPLE
 #     quarter: 3
 #     year: 2019
+# EXAMPLE
+#     week: 16
+#     year: 2019
+#
+# You can also pass a week and year option when calling this script which will
+# override any option set here. See `by-week.rc` for examples.
 quarter: 3
 year: 2019
