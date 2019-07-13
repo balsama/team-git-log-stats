@@ -577,6 +577,8 @@ class GitLogStats {
     protected function parseDateRange($dates) {
         $date_keys = array_keys($dates);
 
+        // If a specific week and year have been passed as arguments, use those
+        // instead of what's in config.
         if (($this->arguments[1] === '-w') && ($this->arguments[3] === '-y')) {
             $date_keys = ['week', 'year'];
             $dates['year'] = $this->arguments[4];
@@ -615,10 +617,10 @@ class GitLogStats {
         elseif ($date_keys == ['week', 'year']) {
             $after_time = $dates['year'] . $this->formatWeekNumber($dates['week']);
             $before_time = $dates['year'] . $this->formatWeekNumber($dates['week'], TRUE);
-            $after = date('Y-m-d', strtotime($after_time));
-            $before = date('Y-m-d', strtotime($before_time));
-            $dates['after'] = $after;
-            $dates['before'] = $before;
+
+            $dates['after'] = date('Y-m-d', strtotime($after_time));
+            $dates['before'] = date('Y-m-d', strtotime($before_time));
+
             $dates['after'] = $this->handleTimezone($dates['after']);
             $dates['before'] = $this->handleTimezone($dates['before']);
             return $dates;
@@ -638,6 +640,20 @@ class GitLogStats {
         $this->fs = new Filesystem();
     }
 
+    /**
+     * @param int $week_number
+     *   An ISO-8601 week number.
+     * @param bool $following_week
+     *   Return the week following the one provided by $week_number.
+     *
+     * @return string
+     *   A week number suitible for passing to `strtotime`.
+     *   Example:
+     *     - Given $week_number = 5, $following_week = FALSE
+     *         return 'W05'
+     *     - Given $week_number = 15, $following_week = TRUE
+     *         return 'W16'
+     */
     protected function formatWeekNumber($week_number, $following_week = FALSE) {
         $week_number = (int) $week_number;
         if ($following_week) {
