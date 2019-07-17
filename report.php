@@ -7,6 +7,14 @@
 
 include_once 'vendor/autoload.php';
 
-$update = new Balsama\DoStats\GitLogStats($argv);
+use Symfony\Component\Console\Application;
+use Balsama\Command\ReportCommand;
 
-echo $update->getDateRange() . $update->getTable() . $update->getSummary() . $update->getCreditTable() . $update->getApiRequestCount();
+//$update = new GitLogStats($argv);
+
+$application = new Application();
+$application->add(new ReportCommand());
+$application->run();
+
+
+//echo $update->getDateRange() . $update->getTable() . $update->getSummary() . $update->getCreditTable() . $update->getApiRequestCount();
