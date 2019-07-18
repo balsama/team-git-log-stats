@@ -106,6 +106,11 @@ class GitLogStats {
      */
     protected $repos = [];
 
+    /**
+     * The config provided in YAML that a debugger might be interested in.
+     */
+    protected $config = [];
+
     public function __construct($arguments) {
         $this->arguments = $arguments;
         $this->setupTools();
@@ -182,6 +187,10 @@ class GitLogStats {
             $this->repos[$name]->run('pull');
         }
         $this->progressBar->finish();
+    }
+
+    public function getConfig() {
+        return $this->config;
     }
 
     /**
@@ -564,6 +573,11 @@ class GitLogStats {
         $this->repos_to_scan = $yaml::parseFile('./config/repos.yml');
         $dates = $yaml::parseFile('./config/date.range.yml');
         $this->date_range = $this->parseDateRange($dates);
+
+        $this->config =[
+            'committers' => $this->committers,
+            'repos_to_scan' => $this->repos_to_scan,
+        ];
     }
 
     /**
@@ -577,12 +591,22 @@ class GitLogStats {
     protected function parseDateRange($dates) {
         $date_keys = array_keys($dates);
 
-        // If a specific week and year have been passed as arguments, use those
-        // instead of what's in config.
-        if (($this->arguments[1] === '-w') && ($this->arguments[3] === '-y')) {
-            $date_keys = ['week', 'year'];
-            $dates['year'] = $this->arguments[4];
-            $dates['week'] = $this->arguments[2];
+        if ($this->arguments['use-date-config'] === false) {
+            // If `use-date-config` hasn't explicitly been set to true, use the
+            // options passed if they exist.
+            if ($this->arguments['week']) {
+                // If a specific week and year have been passed as arguments,
+                // use those instead of what's in config.
+                $date_keys = ['week', 'year'];
+                $dates['year'] = $this->arguments['year'];
+                $dates['week'] = $this->arguments['week'];
+            }
+            if ($this->arguments['quarter']) {
+                // Same for a specific quarter and year
+                $date_keys = ['quarter', 'year'];
+                $dates['year'] = $this->arguments['year'];
+                $dates['quarter'] = $this->arguments['quarter'];
+            }
         }
 
         if ($date_keys == ['after', 'before']) {
