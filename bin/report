@@ -1,3 +1,4 @@
+#!/usr/bin/env php
 <?php
 
 /**
@@ -10,11 +11,10 @@ include_once 'vendor/autoload.php';
 use Symfony\Component\Console\Application;
 use Balsama\Command\ReportCommand;
 
-//$update = new GitLogStats($argv);
-
 $application = new Application();
-$application->add(new ReportCommand());
+$command = new ReportCommand();
+
+$application->add($command);
+
+$application->setDefaultCommand($command->getName());
 $application->run();
-
-
-//echo $update->getDateRange() . $update->getTable() . $update->getSummary() . $update->getCreditTable() . $update->getApiRequestCount();

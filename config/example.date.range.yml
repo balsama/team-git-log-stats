@@ -1,5 +1,10 @@
 # Copy this file to config/date.range.yml and make changes as necessary.
 #
+# This file is only used if `--year` and `--quarter` or `--year` and `--week`
+# options are *not* passed to the console application. ...or if the
+# `--use-date-config` option *is* explicitly passed with the previously
+# mentioned options.
+#
 # FORMAT:
 # Expects two key value pairs, either
 #  - `after` and `before`
@@ -19,7 +24,7 @@
 #     week: 16
 #     year: 2019
 #
-# You can also pass a week and year option when calling this script which will
-# override any option set here. See `by-week.rc` for examples.
+# You can also pass a year plus a week or quarter option when calling this
+# script which will override any option set here. See `by-week.rc` for examples.
 quarter: 3
 year: 2019

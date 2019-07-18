@@ -2,6 +2,7 @@
     "name": "balsama/team_do_stats",
     "description": "Gathers stats from D.O for reporting",
     "type": "project",
+    "bin": ["bin/report"],
     "require": {
         "guzzlehttp/guzzle": "^6.3",
         "mathieuviossat/arraytotexttable": "~1.0.0",

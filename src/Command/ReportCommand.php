@@ -6,24 +6,132 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Balsama\DoStats\GitLogStats;
+use Symfony\Component\Console\Input\InputOption;
 
 class ReportCommand extends Command {
-    // the name of the command (the part after "bin/console")
-    protected static $defaultName = 'do:report';
 
-    protected function configure() {
-        $this->setDescription('Foos the bar.');
-        $this->setHelp('This command lets you foo');
-        $this->addOption('month');
-        $this->addArgument('year');
-    }
+    protected static $defaultName = 'run:report';
 
+    /**
+     * @param InputInterface $input
+     * @param OutputInterface $output
+     *
+     * @return void
+     */
     protected function execute(InputInterface $input, OutputInterface $output) {
-        //$stats = new GitLogStats(['foo']);
-        $args = $input->getArguments();
-        foreach ($args as $arg) {
-            $output->writeln($arg);
+        $this->validateOptions($input, $output);
+        $update = new GitLogStats($input->getOptions());
+
+        if ($input->getOptions()['verbose']) {
+            // Output some basic info about what was read from the config files
+            // if -v was passed.
+            $config = $update->getConfig();
+            $output->writeln('Committers scanned for this report:');
+            $output->writeln("  * " . implode("\n  * ", $config['committers']));
+            $output->writeln('Repos scanned for this report:');
+            $repos = [];
+            foreach($config['repos_to_scan'] as $repo_name => $deets) {
+                $repos[] = $repo_name . ": URL " . $deets['url'] . "Branch " . $deets['branch'];
+            }
+            $output->writeln("  * " . implode("\n  * ", $repos));
         }
-        $output->writeln('Hello world');
+
+        $output->writeln($update->getDateRange() . $update->getTable() . $update->getSummary() . $update->getCreditTable() . $update->getApiRequestCount());
+
+        return;
     }
+
+    /**
+     * Adds the year + week/quarter options to the command.
+     */
+    protected function configure() {
+        $this->setDescription('Parses Git logs for commits by specific people over a set time and formats the results into a table and summary.');
+        $this->setHelp('Parses Git logs for commits by specific people over a set time and formats the results into a table and summary.');
+        $this->addOption(
+            'year',
+            'y',
+            InputOption::VALUE_REQUIRED,
+            "The year for the report (the full numeric representation of a year, 4 digits). If this option is passed, you must also include either the --month or --week option and associated value."
+        );
+        $this->addOption(
+            'quarter',
+            'Q',
+            InputOption::VALUE_REQUIRED,
+            "The quarter for the report (1, 2, 3, or 4). If this option is passed, you must also include the --year option and value, and you may not pass the --week option."
+        );
+        $this->addOption(
+            'week',
+            null,
+            InputOption::VALUE_REQUIRED,
+            "The week for the report (in ISO-8601 format, E.g. 1, 6, 26, or 52). If this option is passed, you must also include the --year option and value, and you may not pass the --quarter option."
+        );
+        $this->addOption(
+            'use-date-config',
+            null,
+            InputOption::VALUE_NONE,
+            "Use the config in /config/date.range.yml."
+        );
+    }
+
+    /**
+     * Validates the provided options and their formats.
+     *
+     * E.g., week must also include year and cannot include a quarter; and it
+     * must be a number between 1 - 52.
+     *
+     * @param InputInterface $input
+     * @param OutputInterface $output
+     *
+     * @throws \Exception
+     *
+     * @return void
+     */
+    protected function validateOptions($input, $output) {
+        $options = $input->getOptions();
+        if ($options['use-date-config']) {
+            $output->writeln('Using config for dates. Ignoring all other options.');
+            return;
+        }
+        elseif ($options['quarter']) {
+            if ($options['week']) {
+                // Week and quarter would conflict with each other.
+                throw new \Exception('You can only pass one of --quarter and --week argument, not both.');
+            }
+            if (!in_array($options['quarter'], [1,2,3,4])) {
+                throw new \Exception('Quarter option must be a single integer, 1, 2, 3, or, 4');
+            }
+            $this->validateYear($options['year']);
+        }
+        elseif ($options['week']) {
+            if ($options['quarter']) {
+                // Quarter and week would conflict with each other.
+                throw new \Exception('You can only pass one of --week and --quarter argument, not both');
+            }
+            if ((!is_numeric($options['week'])) || ($options['week'] < 1) || ($options['week'] > 53)) {
+                throw new \Exception('Week option must be a number between 1 and 52');
+            }
+            $this->validateYear($options['year']);
+        }
+        elseif ($options['year']) {
+            $this->validateYear($options['year']);
+            if ((empty($options['quarter'])) && empty($options['week'])) {
+                throw new \Exception('Year option must also be passed with either week or quarter');
+            }
+        }
+
+        return;
+    }
+
+    /**
+     * Validates the param is four-digit integer.
+     * @param $year
+     * @throws \Exception
+     */
+    protected function validateYear($year) {
+        if (preg_match("/^[0-9]{4}$/", $year)) {
+            return;
+        }
+        throw new \Exception('Year option must be a four digit integer');
+    }
+
 }

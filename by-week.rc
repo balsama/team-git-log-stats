@@ -1,14 +1,6 @@
 #!/usr/bin/env bash
-php ./report.php -w 14 -y 2019 > ~/team-stats--2019-q2--by-week.txt
-php ./report.php -w 15 -y 2019 >> ~/team-stats--2019-q2--by-week.txt
-php ./report.php -w 16 -y 2019 >> ~/team-stats--2019-q2--by-week.txt
-php ./report.php -w 17 -y 2019 >> ~/team-stats--2019-q2--by-week.txt
-php ./report.php -w 18 -y 2019 >> ~/team-stats--2019-q2--by-week.txt
-php ./report.php -w 19 -y 2019 >> ~/team-stats--2019-q2--by-week.txt
-php ./report.php -w 20 -y 2019 >> ~/team-stats--2019-q2--by-week.txt
-php ./report.php -w 21 -y 2019 >> ~/team-stats--2019-q2--by-week.txt
-php ./report.php -w 22 -y 2019 >> ~/team-stats--2019-q2--by-week.txt
-php ./report.php -w 23 -y 2019 >> ~/team-stats--2019-q2--by-week.txt
-php ./report.php -w 24 -y 2019 >> ~/team-stats--2019-q2--by-week.txt
-php ./report.php -w 25 -y 2019 >> ~/team-stats--2019-q2--by-week.txt
-php ./report.php -w 26 -y 2019 >> ~/team-stats--2019-q2--by-week.txt
+./bin/report --week 26 --year 2019 > ~/team-stats--2019-q2--by-week.txt
+./bin/report --week 27 --year 2019 >> ~/team-stats--2019-q2--by-week.txt
+./bin/report --week 28 --year 2019 >> ~/team-stats--2019-q2--by-week.txt
+./bin/report --week 29 --year 2019 >> ~/team-stats--2019-q2--by-week.txt
+# ...
