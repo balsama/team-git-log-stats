@@ -15,7 +15,8 @@ use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Process\Process;
 use Symfony\Component\Yaml;
 
-class GitLogStats {
+class GitLogStats
+{
 
     /* @var \GuzzleHttp\ClientInterface */
     protected $client;
@@ -111,7 +112,8 @@ class GitLogStats {
      */
     protected $config = [];
 
-    public function __construct($arguments) {
+    public function __construct($arguments)
+    {
         $this->arguments = $arguments;
         $this->setupTools();
         $this->parseConfig();
@@ -126,8 +128,9 @@ class GitLogStats {
      * @return string
      *   The date range used to generate the report.
      */
-    public function getDateRange() {
-        $string = 'Week/Month/From: ' . array_values($this->date_range)[0] . ' Year/To: ' . array_values($this->date_range)[1];
+    public function getDateRange()
+    {
+        $string = 'Week/Month: ' . array_values($this->date_range)[0] . ' Year: ' . array_values($this->date_range)[1];
         $strlen = strlen($string);
         $separator = str_repeat('*', ($strlen + 4));
         return $separator . "\n* " . $string . " *\n" . $separator . "\n";
@@ -137,7 +140,8 @@ class GitLogStats {
      * @return string
      *   A formatted table of all issues.
      */
-    public function getTable() {
+    public function getTable()
+    {
         return $this->formatAllIssueData();
     }
 
@@ -145,35 +149,40 @@ class GitLogStats {
      * @return string
      *   A summary of issues and story points.
      */
-    public function getSummary() {
+    public function getSummary()
+    {
         return $this->summarizeIssueData();
     }
 
     /**
      * @return string
      */
-    public function getCreditTable() {
+    public function getCreditTable()
+    {
         return $this->formatCreditData();
     }
     /**
      * @return array
      *   Array of data about the issues in the log.
      */
-    public function getAllIssueData() {
+    public function getAllIssueData()
+    {
         return $this->issue_data;
     }
 
     /**
      * @return string
      */
-    public function getApiRequestCount() {
+    public function getApiRequestCount()
+    {
         return "\n Total API Requests: $this->apiRequestCount \n";
     }
 
     /**
      * Clones local copies of the repos and checks out the defined branch.
      */
-    protected function cloneAndUpdateRepos() {
+    protected function cloneAndUpdateRepos()
+    {
         $this->fs->mkdir('./repos');
         $this->instantiateProgressBar(count($this->repos_to_scan), 'Setting up repos');
         foreach ($this->repos_to_scan as $name => $info) {
@@ -189,14 +198,16 @@ class GitLogStats {
         $this->progressBar->finish();
     }
 
-    public function getConfig() {
+    public function getConfig()
+    {
         return $this->config;
     }
 
     /**
      * Creates the git log based on the repos and committers.
      */
-    protected function generateLog() {
+    protected function generateLog()
+    {
         $this->setLogCommandOptions();
 
         $this->instantiateProgressBar(count($this->repos_to_scan), 'Writing git log for repos:');
@@ -218,7 +229,8 @@ class GitLogStats {
      * @throws \HttpInvalidParamException
      *   If no issue numbers are found.
      */
-    protected function getIssueNumbers() {
+    protected function getIssueNumbers()
+    {
         $blob = $this->log;
         preg_match_all('/ Issue #[0-9.]*/', $blob, $matches);
         if (empty($matches)) {
@@ -234,7 +246,8 @@ class GitLogStats {
     /**
      * Gets and stores issue data about all issue numbers.
      */
-    protected function gatherAllIssueData() {
+    protected function gatherAllIssueData()
+    {
         $this->issue_numbers = $this->getIssueNumbers($this->log);
         $this->instantiateProgressBar(count($this->issue_numbers), 'Fetching data about issues');
         foreach ($this->issue_numbers as $issue_number) {
@@ -251,7 +264,8 @@ class GitLogStats {
      * @return array
      *   An array of information about the issue.
      */
-    protected function getIssueData($issue_number) {
+    protected function getIssueData($issue_number)
+    {
         $response = $this->apiRequest('node', $issue_number);
         $body = json_decode($response->getBody());
         $contributors = $this->getIssueContributors($issue_number);
@@ -289,7 +303,8 @@ class GitLogStats {
      *   The issue ID to which the comments belong.
      * @return array
      */
-    protected function getIssueContributors($parentIssue) {
+    protected function getIssueContributors($parentIssue)
+    {
         $commitMessage = $this->getCommitMessageFromIssueNumber($parentIssue);
         foreach ($this->committers as $contributor) {
             if (strpos($commitMessage, $contributor)) {
@@ -297,7 +312,6 @@ class GitLogStats {
                 $this->issueCreditsByContributor[$parentIssue][] = $contributor;
                 $this->contributorIssues[$contributor][] = $parentIssue;
             }
-
         }
         return $contribitors;
     }
@@ -309,7 +323,8 @@ class GitLogStats {
      * @param int $issueId
      * @return int
      */
-    protected function getIssuePoints($issueId) {
+    protected function getIssuePoints($issueId)
+    {
         return $this->issue_data[$issueId]['Size'];
     }
 
@@ -321,7 +336,8 @@ class GitLogStats {
      *
      * @throws \Exception
      */
-    protected function formatAllIssueData() {
+    protected function formatAllIssueData()
+    {
         if (empty($this->issue_data)) {
             throw new \Exception("No issue data collected yet. Perhaps you called this method before ::getIssueData?");
         }
@@ -330,7 +346,8 @@ class GitLogStats {
     }
 
 
-    protected function formatCreditData() {
+    protected function formatCreditData()
+    {
         $renderer = new ArrayToTextTable($this->contributorPoints);
         return $renderer->getTable();
     }
@@ -340,7 +357,8 @@ class GitLogStats {
      * @return string
      *   Summarized issue data.
      */
-    protected function summarizeIssueData() {
+    protected function summarizeIssueData()
+    {
         $issue_count = count($this->issue_numbers);
         $features_points = 0;
         $maintenance_points = 0;
@@ -348,15 +366,21 @@ class GitLogStats {
         foreach ($this->issue_data as $issue_datum) {
             if ($issue_datum['Category'] == 'Feature') {
                 $features_points = ($features_points + (int) $issue_datum['Size']);
-            }
-            elseif ($issue_datum['Category'] == 'Maintenance') {
+            } elseif ($issue_datum['Category'] == 'Maintenance') {
                 $maintenance_points = ($maintenance_points + (int) $issue_datum['Size']);
-            }
-            elseif ($issue_datum['Category'] == 'Other') {
+            } elseif ($issue_datum['Category'] == 'Other') {
                 $other_points = ($other_points + (int) $issue_datum['Size']);
             }
         }
-        return "\n" . 'Issues: ' . $issue_count . "\n" . 'Feature points: ' . $features_points . "\n" . 'Maintenance points: ' . $maintenance_points . "\n" . 'Other points: ' . $other_points . "\n";
+        return implode(
+            "\n",
+            [
+                "\nIssues: $issue_count",
+                "Feature points: $features_points",
+                "Maintenance points: $maintenance_points",
+                "Other points: $other_points\n",
+            ]
+        );
     }
 
     /**
@@ -371,13 +395,13 @@ class GitLogStats {
      *
      * @return object
      */
-    protected function apiRequest($entityType, $entityId, $retryOnError = true) {
+    protected function apiRequest($entityType, $entityId, $retryOnError = true)
+    {
         try {
             $response = $this->client->get($this->base_url . $entityType . '/' . $entityId . '.json');
             $this->apiRequestCount++;
             return $response;
-        }
-        catch (ServerException $e) {
+        } catch (ServerException $e) {
             if ($retryOnError) {
                 return $this->apiRequest($entityType, $entityId);
             }
@@ -403,8 +427,7 @@ class GitLogStats {
         $body = (string) $response->getBody();
         if (json_last_error() === JSON_ERROR_NONE) {
             return $body;
-        }
-        else {
+        } else {
             throw new \HttpResponseException("Bad response");
         }
     }
@@ -422,15 +445,15 @@ class GitLogStats {
      *
      * @return string
      */
-    protected function mapCategory($category) {
+    protected function mapCategory($category)
+    {
         $map = [
             'Maintenance' => [1, 4],
             'Feature' => [2, 3, 5],
         ];
         if (in_array($category, $map['Maintenance'])) {
             return 'Maintenance';
-        }
-        elseif (in_array($category, $map['Feature'])) {
+        } elseif (in_array($category, $map['Feature'])) {
             return 'Feature';
         }
         return 'Other';
@@ -446,7 +469,8 @@ class GitLogStats {
      * @return int
      *   The mapped "size".
      */
-    protected function mapSizeFromCommentCount($count) {
+    protected function mapSizeFromCommentCount($count)
+    {
         switch ($count) {
             case ($count > 100):
                 $size = 21;
@@ -472,7 +496,8 @@ class GitLogStats {
      * @param $repo string
      *   The name of the repo
      */
-    protected function appendGitLog($repo) {
+    protected function appendGitLog($repo)
+    {
         $process = new Process($this->logCommandOptions, './repos/' . $repo);
         $process->run();
         $log = $process->getOutput();
@@ -483,7 +508,8 @@ class GitLogStats {
      * Generates the git log command and options.
      * @return array
      */
-    protected function setLogCommandOptions() {
+    protected function setLogCommandOptions()
+    {
         $base = ['git', 'log', '--oneline'];
         $date = ['--after=' . $this->date_range['after'], '--before=' . $this->date_range['before']];
         $committers = [];
@@ -501,14 +527,16 @@ class GitLogStats {
      * @param $length int
      * @return string
      */
-    protected function truncate($string, $length) {
+    protected function truncate($string, $length)
+    {
         if (strlen($string) > $length) {
             $string = substr($string, 0, $length) . '...';
         }
         return $string;
     }
 
-    protected function initProgressBar() {
+    protected function initProgressBar()
+    {
         $output = new ConsoleOutput();
         $this->progressBar = new ProgressBar($output);
         $this->progressBar->setFormatDefinition('custom', "\n%message% \n %current%/%max% |%bar%| \n %detail% \n");
@@ -521,7 +549,8 @@ class GitLogStats {
      * @param $count int
      * @param $message string
      */
-    protected function instantiateProgressBar($count, $message) {
+    protected function instantiateProgressBar($count, $message)
+    {
         $this->progressBar->setMessage($message);
         $this->progressBar->setMessage('', 'detail');
         $this->progressBar->setMaxSteps($count);
@@ -532,7 +561,8 @@ class GitLogStats {
      * Wrapper function around progress bar update methods.
      * @param $detail string
      */
-    protected function updateProgressBarWithDetail($detail) {
+    protected function updateProgressBarWithDetail($detail)
+    {
         $this->progressBar->setMessage($detail, 'detail');
         $this->progressBar->advance();
     }
@@ -540,14 +570,15 @@ class GitLogStats {
     /**
      * Parses the config from yaml files.
      */
-    protected function parseConfig() {
+    protected function parseConfig()
+    {
         $yaml = new Yaml\Yaml();
         $this->committers = $yaml::parseFile('./config/committers.yml');
         $this->repos_to_scan = $yaml::parseFile('./config/repos.yml');
         $dates = $yaml::parseFile('./config/date.range.yml');
         $this->date_range = $this->parseDateRange($dates);
 
-        $this->config =[
+        $this->config = [
             'committers' => $this->committers,
             'repos_to_scan' => $this->repos_to_scan,
         ];
@@ -561,7 +592,8 @@ class GitLogStats {
      * @return mixed
      *   Normalized array of after and before timestamps.
      */
-    protected function parseDateRange($dates) {
+    protected function parseDateRange($dates)
+    {
         $date_keys = array_keys($dates);
 
         if ($this->arguments['use-date-config'] === false) {
@@ -584,8 +616,7 @@ class GitLogStats {
 
         if ($date_keys == ['after', 'before']) {
             return $dates;
-        }
-        elseif ($date_keys == ['quarter', 'year']) {
+        } elseif ($date_keys == ['quarter', 'year']) {
             if (!is_numeric($dates['quarter']) || (!is_numeric($dates['year']))) {
                 throw new InvalidArgumentException('Year and quarter values must both be numeric.');
             }
@@ -610,10 +641,9 @@ class GitLogStats {
             $dates['after'] = $this->handleTimezone($dates['after']);
             $dates['before'] = $this->handleTimezone($dates['before']);
             return $dates;
-        }
-        elseif ($date_keys == ['week', 'year']) {
+        } elseif ($date_keys == ['week', 'year']) {
             $after_time = $dates['year'] . $this->formatWeekNumber($dates['week']);
-            $before_time = $dates['year'] . $this->formatWeekNumber($dates['week'], TRUE);
+            $before_time = $dates['year'] . $this->formatWeekNumber($dates['week'], true);
 
             $dates['after'] = date('Y-m-d', strtotime($after_time));
             $dates['before'] = date('Y-m-d', strtotime($before_time));
@@ -621,18 +651,20 @@ class GitLogStats {
             $dates['after'] = $this->handleTimezone($dates['after']);
             $dates['before'] = $this->handleTimezone($dates['before']);
             return $dates;
-        }
-        else {
-            throw new InvalidArgumentException('Date config must provide either "before" and "after",  "quarter" and "year", or "week" and "year" values.');
+        } else {
+            $m = 'Date config must provide  "before" and "after", "quarter" and "year", or "week" and "year" values.';
+            throw new InvalidArgumentException($m);
         }
     }
 
-    protected function handleTimezone($date, $format = 'U') {
+    protected function handleTimezone($date, $format = 'U')
+    {
         $dt = new \DateTime($date, new \DateTimeZone('UTC'));
         return $dt->format($format);
     }
 
-    protected function setupTools() {
+    protected function setupTools()
+    {
         $this->client = new Client();
         $this->fs = new Filesystem();
     }
@@ -651,7 +683,8 @@ class GitLogStats {
      *     - Given $week_number = 15, $following_week = TRUE
      *         return 'W16'
      */
-    protected function formatWeekNumber($week_number, $following_week = FALSE) {
+    protected function formatWeekNumber($week_number, $following_week = false)
+    {
         $week_number = (int) $week_number;
         if ($following_week) {
             $week_number++;
@@ -666,7 +699,8 @@ class GitLogStats {
      * @param $issueNumber
      * @return string|false
      */
-    private function getCommitMessageFromIssueNumber($issueNumber) {
+    private function getCommitMessageFromIssueNumber($issueNumber)
+    {
         $lines = explode("\n", $this->log);
         foreach ($lines as $lineNumber => $line) {
             if (strpos($line, $issueNumber) !== false) {
@@ -675,5 +709,4 @@ class GitLogStats {
         }
         return -1;
     }
-
 }
