@@ -254,7 +254,7 @@ class GitLogStats {
     protected function getIssueData($issue_number) {
         $response = $this->apiRequest('node', $issue_number);
         $body = json_decode($response->getBody());
-        $contributors = $this->getIssueContributors($body->field_issue_credit, $issue_number);
+        $contributors = $this->getIssueContributors($issue_number);
         $truncatedContributors = [];
         foreach ($contributors as $contributor) {
             $truncatedContributors[] = substr($contributor, 0, 2);
@@ -283,50 +283,23 @@ class GitLogStats {
 
     /**
      * Returns a list of contributor names filtered by the committers.yml for a
-     * given issue.
+     * given issue and populates the issue and contributor variables.
      *
-     * @param $creditComments
-     *   Array from the `field_issue_credit` field of an issue response from
-     *   Drupal.org's api. Expected to have `id` as a property.
      * @param $parentIssue
      *   The issue ID to which the comments belong.
-     * @return string[]
-     *   Array of contributor names.
+     * @return array
      */
-    protected function getIssueContributors($creditComments, $parentIssue) {
-        $contributors = [];
-        foreach ($creditComments as $creditComment) {
-            $response = $this->apiRequest('comment', $creditComment->id);
-            $body = json_decode($response->getBody());
-            $contributor = $body->name;
-            if (!in_array($contributor, $this->committers)) {
-                continue;
+    protected function getIssueContributors($parentIssue) {
+        $commitMessage = $this->getCommitMessageFromIssueNumber($parentIssue);
+        foreach ($this->committers as $contributor) {
+            if (strpos($commitMessage, $contributor)) {
+                $contribitors[] = $contributor;
+                $this->issueCreditsByContributor[$parentIssue][] = $contributor;
+                $this->contributorIssues[$contributor][] = $parentIssue;
             }
-            if (array_key_exists($parentIssue, $this->issueCreditsByContributor)) {
-                if (in_array($contributor, $this->issueCreditsByContributor[$parentIssue])) {
-                    continue;
-                }
-            }
-            $this->issueCreditsByContributor[$parentIssue][] = $contributor;
-            $this->contributorIssues[$contributor][] = $parentIssue;
-            $contributors[] = $contributor;
-        }
-        return $contributors;
-    }
 
-    protected function calculateContributorPoints() {
-        foreach ($this->contributorIssues as $contributorName => $contributorIssues) {
-            $total = 0;
-            $count = count($contributorIssues);
-            foreach ($contributorIssues as $contributorIssue) {
-                $total = $total + $this->getIssuePoints($contributorIssue);
-            }
-            $this->contributorPoints[] = [
-                'Name' => $contributorName,
-                'Issue Count' => $count,
-                'Points' => $total,
-            ];
         }
+        return $contribitors;
     }
 
     /**
@@ -687,6 +660,20 @@ class GitLogStats {
             $week_number = '0' . $week_number;
         }
         return (string) 'W' . $week_number;
+    }
+
+    /**
+     * @param $issueNumber
+     * @return string|false
+     */
+    private function getCommitMessageFromIssueNumber($issueNumber) {
+        $lines = explode("\n", $this->log);
+        foreach ($lines as $lineNumber => $line) {
+            if (strpos($line, $issueNumber) !== false) {
+                return $line;
+            }
+        }
+        return -1;
     }
 
 }
