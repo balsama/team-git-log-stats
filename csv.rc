@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+if [ -z "$1" ]
+  then
+    YEAR=$(date +%Y)
+  else
+    YEAR=$1
+fi
+
+if [ -z "$2" ]
+  then
+    WEEK=$(date +%V)
+  else
+    WEEK=$2
+fi
+
+CSV=$(./bin/stats --week=${WEEK} --year=${YEAR})
+
+echo "${CSV}"

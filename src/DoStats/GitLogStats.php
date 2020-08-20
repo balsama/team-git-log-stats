@@ -74,15 +74,29 @@ class GitLogStats
      */
     protected $contributorPoints = [];
 
+    /**
+     * Array of all info about all contributors and the week the report is based on.
+     *
+     * @var array[]
+     */
+    private array $metaArray;
+
     /* @var int */
     protected $apiRequestCount = 0;
 
     /**
-     * An array of committer usernames.
+     * An array of contributor usernames.
      *
      * @var string[]
      */
-    protected $committers = [];
+    protected $contributors = [];
+
+    /**
+     * A multidimentional array of info about the contributors.
+     *
+     * @var array[]
+     */
+    protected $contributorInfo = [];
 
     /**
      * A list of all repos to scan for commits along with the branch.
@@ -122,6 +136,8 @@ class GitLogStats
         $this->generateLog();
         $this->gatherAllIssueData();
         $this->calculateContributorPoints();
+        $this->fillEmptyUsers();
+        $this->makeMetaArray();
     }
 
     /**
@@ -161,6 +177,17 @@ class GitLogStats
     {
         return $this->formatCreditData();
     }
+
+    public function getCsv($stripHeaders = true)
+    {
+        $data = $this->metaArray;
+        if ($stripHeaders) {
+            unset($data['headers']);
+        }
+        $csv = $this->array2csv($data);
+        return $csv;
+    }
+
     /**
      * @return array
      *   Array of data about the issues in the log.
@@ -306,7 +333,7 @@ class GitLogStats
     protected function getIssueContributors($parentIssue)
     {
         $commitMessage = $this->getCommitMessageFromIssueNumber($parentIssue);
-        foreach ($this->committers as $contributor) {
+        foreach ($this->contributors as $contributor) {
             if (strpos($commitMessage, $contributor)) {
                 $contribitors[] = $contributor;
                 $this->issueCreditsByContributor[$parentIssue][] = $contributor;
@@ -314,6 +341,63 @@ class GitLogStats
             }
         }
         return $contribitors;
+    }
+
+    protected function fillEmptyUsers()
+    {
+        foreach ($this->contributors as $contributor) {
+            if (!array_key_exists($contributor, $this->contributorPoints)) {
+                $this->contributorPoints[$contributor] = [
+                    'Name' => $contributor,
+                    'Issue Count' => 0,
+                    'Points' => 0,
+                ];
+            }
+        }
+        ksort($this->contributorPoints);
+    }
+
+    protected function calculateContributorPoints()
+    {
+        foreach ($this->contributorIssues as $contributorName => $contributorIssues) {
+            $total = 0;
+            $count = count($contributorIssues);
+            foreach ($contributorIssues as $contributorIssue) {
+                $total = $total + $this->getIssuePoints($contributorIssue);
+            }
+            $this->contributorPoints[$contributorName] = [
+                'Name' => $contributorName,
+                'Issue Count' => $count,
+                'Points' => $total,
+            ];
+        }
+    }
+
+    private function makeMetaArray()
+    {
+        $metaArray['headers'] = [
+            'Week (YYYY-WW)',
+            'Name',
+            'Username',
+            'Drupal Core Assignment',
+            'Primary Assignment',
+            'Issues Closed',
+            'Points Estimate',
+        ];
+        foreach ($this->contributors as $contributor) {
+            /* @var $contributorInfo Contributor */
+            $contributorInfo = $this->contributorInfo[$contributor];
+            $metaArray[$contributor] = [
+                'Week (YYYY-WW)' => $this->date_range['year'] . '-' . $this->date_range['week'],
+                'Name' => $contributor,
+                'Username' => $contributorInfo->getUsername(),
+                'Drupal Core Assignment' => $contributorInfo->getDrupalCoreAssignment(),
+                'Primary Assignment' => $contributorInfo->getPrimaryAssignment(),
+                'Issues Closed' => $this->contributorPoints[$contributor]['Issue Count'],
+                'Points Estimate' => $this->contributorPoints[$contributor]['Points'],
+            ];
+        }
+        $this->metaArray = $metaArray;
     }
 
     /**
@@ -513,7 +597,7 @@ class GitLogStats
         $base = ['git', 'log', '--oneline'];
         $date = ['--after=' . $this->date_range['after'], '--before=' . $this->date_range['before']];
         $committers = [];
-        foreach ($this->committers as $committer) {
+        foreach ($this->contributors as $committer) {
             $committers[] = '--grep=' . $committer;
         }
         $this->logCommandOptions = array_merge($base, $date, $committers);
@@ -573,13 +657,22 @@ class GitLogStats
     protected function parseConfig()
     {
         $yaml = new Yaml\Yaml();
-        $this->committers = $yaml::parseFile('./config/committers.yml');
+        $contributorInfoArray = $yaml::parseFile('./config/contributors.yml');
+        foreach ($contributorInfoArray as $contributorInfo) {
+            $this->contributorInfo[$contributorInfo['username']] = new Contributor(
+                $contributorInfo['username'],
+                $contributorInfo['real name'],
+                $contributorInfo['primary assignment'],
+                $contributorInfo['assigned to core'],
+            );
+            $this->contributors[$contributorInfo['username']] = $contributorInfo['username'];
+        }
         $this->repos_to_scan = $yaml::parseFile('./config/repos.yml');
         $dates = $yaml::parseFile('./config/date.range.yml');
         $this->date_range = $this->parseDateRange($dates);
 
         $this->config = [
-            'committers' => $this->committers,
+            'committers' => $this->contributors,
             'repos_to_scan' => $this->repos_to_scan,
         ];
     }
@@ -708,5 +801,15 @@ class GitLogStats
             }
         }
         return -1;
+    }
+
+    private function array2csv($data, $delimiter = ',', $enclosure = '"', $escape_char = "\\")
+    {
+        $f = fopen('php://memory', 'r+');
+        foreach ($data as $item) {
+            fputcsv($f, $item, $delimiter, $enclosure, $escape_char);
+        }
+        rewind($f);
+        return stream_get_contents($f);
     }
 }
