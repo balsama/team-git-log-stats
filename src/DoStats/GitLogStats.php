@@ -137,7 +137,9 @@ class GitLogStats
         $this->gatherAllIssueData();
         $this->calculateContributorPoints();
         $this->fillEmptyUsers();
-        $this->makeMetaArray();
+        if ((array_key_exists('year', $this->date_range)) || (array_key_exists('week', $this->date_range))) {
+            $this->makeMetaArray();
+        }
     }
 
     /**
@@ -180,6 +182,11 @@ class GitLogStats
 
     public function getCsv($stripHeaders = true)
     {
+        if (!isset($this->metaArray)) {
+            throw new \http\Exception\InvalidArgumentException(
+                'You need to provide a week and year to generate a CSV.'
+            );
+        }
         $data = $this->metaArray;
         if ($stripHeaders) {
             unset($data['headers']);
@@ -387,6 +394,11 @@ class GitLogStats
         foreach ($this->contributors as $contributor) {
             /* @var $contributorInfo Contributor */
             $contributorInfo = $this->contributorInfo[$contributor];
+            if ((!array_key_exists('year', $this->date_range)) || (!array_key_exists('week', $this->date_range))) {
+                throw new \http\Exception\InvalidArgumentException(
+                    'You must supply a year and a week to generate the meta array.'
+                );
+            }
             $metaArray[$contributor] = [
                 'Week (YYYY-WW)' => $this->date_range['year'] . '-' . $this->date_range['week'],
                 'Name' => $contributor,
