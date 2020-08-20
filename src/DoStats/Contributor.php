@@ -1,6 +1,5 @@
 <?php
 
-
 namespace Balsama\DoStats;
 
 use http\Exception\InvalidArgumentException;

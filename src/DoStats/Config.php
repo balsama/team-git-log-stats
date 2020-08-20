@@ -1,8 +1,6 @@
 <?php
 
-
 namespace Balsama\DoStats;
-
 
 class Config
 {
@@ -10,5 +8,4 @@ class Config
     public function __construct()
     {
     }
-
 }
