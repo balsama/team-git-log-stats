@@ -24,6 +24,10 @@ class StatsCommand extends Command
         $this->validateOptions($input, $output);
         $update = new GitLogStats($input->getOptions());
 
+        $csv = $update->getCsv();
+
+        $output->write($csv);
+
         $foo = 21;
 
 
