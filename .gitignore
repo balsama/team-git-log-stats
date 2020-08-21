@@ -2,7 +2,4 @@ composer.phar
 /vendor/
 /repos/
 log.txt
-config/committers.yml
-config/date.range.yml
-config/repos.yml
 /.idea

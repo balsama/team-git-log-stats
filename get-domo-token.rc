@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+# DOMO_CLIENT_SECRET is set via Travis CI encrypted variable. If it's not, look for a local file containing the key.
+# @see https://developer.domo.com/manage-clients
+if [[ -z "$DOMO_CLIENT_SECRET" ]]; then
+  DOMO_CLIENT_SECRET=$(<~/keys/domo-secret)
+fi
+
+DOMO_CLIENT_ID=af972152-7ed4-43ac-bd0d-4a08e04147da
+DOMO_SCOPE=data
+
+DOMO_ACCESS_TOKEN=$(curl -u ${DOMO_CLIENT_ID}:${DOMO_CLIENT_SECRET} "https://api.domo.com/oauth/token?grant_type=client_credentials&scope=${DOMO_SCOPE}" | jq ".access_token" -r)
+
+echo "${DOMO_ACCESS_TOKEN}"

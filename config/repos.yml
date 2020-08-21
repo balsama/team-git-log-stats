@@ -1,0 +1,12 @@
+# Copy this file to config/repos.yml and make changes as necessary.
+#
+# A list of Git repositories you want to search for commits.
+drupal89:
+    url: 'https://git.drupal.org/project/drupal.git'
+    branch: 8.9.x
+drupal90:
+    url: 'https://git.drupal.org/project/drupal.git'
+    branch: 9.0.x
+drupal91:
+    url: 'https://git.drupal.org/project/drupal.git'
+    branch: 9.1.x

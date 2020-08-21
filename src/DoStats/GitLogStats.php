@@ -400,7 +400,7 @@ class GitLogStats
                 );
             }
             $metaArray[$contributor] = [
-                'Week (YYYY-WW)' => $this->date_range['year'] . '-' . $this->date_range['week'],
+                'Week (YYYY-MM-DD)' => date('Y-m-d', strtotime($this->date_range['year'] . 'W' . $this->date_range['week'])),
                 'Name' => $contributor,
                 'Username' => $contributorInfo->getUsername(),
                 'Drupal Core Assignment' => $contributorInfo->getDrupalCoreAssignment(),
@@ -502,29 +502,6 @@ class GitLogStats
                 return $this->apiRequest($entityType, $entityId);
             }
             echo 'Caught response: ' . $e->getResponse()->getStatusCode();
-        }
-    }
-
-    /**
-     * Decodes a JSON response.
-     *
-     * @param \Psr\Http\Message\ResponseInterface $response
-     *   The response object.
-     *
-     * @return mixed
-     *   The decoded response data. If the JSON parser raises an error, the test
-     *   will fail, with the bad input as the failure message.
-     *
-     * @throws \HttpResponseException
-     *   If the body doesn't contain an error.
-     */
-    protected function decodeResponse(ResponseInterface $response)
-    {
-        $body = (string) $response->getBody();
-        if (json_last_error() === JSON_ERROR_NONE) {
-            return $body;
-        } else {
-            throw new \HttpResponseException("Bad response");
         }
     }
 
