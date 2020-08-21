@@ -1,4 +1,4 @@
-# Copy this file to config/committers.yml and make changes as necessary.
+# Copy this file to config/contributors.yml and make changes as necessary.
 #
 # A list of Drupal.Org usernames of contributors you want to search Git logs
 # for.
@@ -65,5 +65,5 @@ xjm:
 zrpnr:
   username: zrpnr
   real name: Peter Weber
-  primary assignment: Automatic Updates
-  assigned to core: 1
+  primary assignment: AMA
+  assigned to core: 0
