@@ -400,7 +400,10 @@ class GitLogStats
                 );
             }
             $metaArray[$contributor] = [
-                'Week (YYYY-MM-DD)' => date('Y-m-d', strtotime($this->date_range['year'] . 'W' . $this->date_range['week'])),
+                'Week (YYYY-MM-DD)' => date(
+                    'Y-m-d',
+                    strtotime($this->date_range['year'] . 'W' . $this->date_range['week'])
+                ),
                 'Name' => $contributor,
                 'Username' => $contributorInfo->getUsername(),
                 'Drupal Core Assignment' => $contributorInfo->getDrupalCoreAssignment(),
