@@ -131,6 +131,10 @@ class GitLogStats
         $this->arguments = $arguments;
         $this->setupTools();
         $this->parseConfig();
+    }
+
+    public function execute()
+    {
         $this->initProgressBar();
         $this->cloneAndUpdateRepos();
         $this->generateLog();
@@ -666,7 +670,10 @@ class GitLogStats
         $this->config = [
             'committers' => $this->contributors,
             'repos_to_scan' => $this->repos_to_scan,
+            'date_range' => $this->date_range,
         ];
+
+        $this->reportConfig();
     }
 
     /**
@@ -793,6 +800,12 @@ class GitLogStats
             }
         }
         return -1;
+    }
+
+    private function reportConfig()
+    {
+        // TBD
+        $foo =- 21;
     }
 
     private function array2csv($data, $delimiter = ',', $enclosure = '"', $escape_char = "\\")

@@ -7,11 +7,14 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Balsama\DoStats\GitLogStats;
 use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\Console\Helper\TableSeparator;
 
 class StatsCommand extends Command
 {
 
     protected static $defaultName = 'run:stats';
+    private SymfonyStyle $io;
 
     /**
      * @param InputInterface $input
@@ -21,8 +24,13 @@ class StatsCommand extends Command
      */
     protected function execute(InputInterface $input, OutputInterface $output)
     {
+        $this->io = new SymfonyStyle($input, $output);
         $this->validateOptions($input, $output);
         $update = new GitLogStats($input->getOptions());
+
+        $this->summarizeConfig($update->getConfig());
+
+        $update->execute();
 
         $csv = $update->getCsv();
 
@@ -143,5 +151,26 @@ class StatsCommand extends Command
             return;
         }
         throw new \Exception('Year option must be a four digit integer');
+    }
+
+    private function summarizeConfig($config)
+    {
+        $this->io->title('Date Config');
+        $this->io->definitionList(
+            [array_keys($config['date_range'])[0] => $config['date_range'][array_keys($config['date_range'])[0]]],
+            [array_keys($config['date_range'])[1] => $config['date_range'][array_keys($config['date_range'])[1]]],
+            [array_keys($config['date_range'])[2] => $config['date_range'][array_keys($config['date_range'])[2]]],
+            [array_keys($config['date_range'])[3] => $config['date_range'][array_keys($config['date_range'])[3]]],
+        );
+        $this->io->title('Contributors');
+        $this->io->listing($config['committers']);
+        $this->io->title('Repos');
+        $this->io->listing(array_keys($config['repos_to_scan']));
+
+        $confirm = $this->io->confirm('Do you want to continue with this config?');
+        if (!$confirm) {
+            $this->io->warning('Cancelled');
+            exit(1);
+        }
     }
 }
