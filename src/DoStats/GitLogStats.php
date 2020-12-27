@@ -81,6 +81,13 @@ class GitLogStats
      */
     private array $metaArray;
 
+    /**
+     * Comments per contributor.
+     *
+     * @var array[]
+     */
+    private array $ContributorComments;
+
     /* @var int */
     protected $apiRequestCount = 0;
 
@@ -141,6 +148,7 @@ class GitLogStats
         $this->gatherAllIssueData();
         $this->calculateContributorPoints();
         $this->fillEmptyUsers();
+        $this->gatherCommentStats();
         if ((array_key_exists('year', $this->date_range)) || (array_key_exists('week', $this->date_range))) {
             $this->makeMetaArray();
         }
@@ -174,6 +182,11 @@ class GitLogStats
     public function getSummary()
     {
         return $this->summarizeIssueData();
+    }
+
+    public function getContributorComments()
+    {
+        return $this->ContributorComments;
     }
 
     /**
@@ -399,7 +412,7 @@ class GitLogStats
             /* @var $contributorInfo Contributor */
             $contributorInfo = $this->contributorInfo[$contributor];
             if ((!array_key_exists('year', $this->date_range)) || (!array_key_exists('week', $this->date_range))) {
-                throw new \http\Exception\InvalidArgumentException(
+                throw new InvalidArgumentException(
                     'You must supply a year and a week to generate the meta array.'
                 );
             }
@@ -414,6 +427,7 @@ class GitLogStats
                 'Primary Assignment' => $contributorInfo->getPrimaryAssignment(),
                 'Issues Closed' => $this->contributorPoints[$contributor]['Issue Count'],
                 'Points Estimate' => $this->contributorPoints[$contributor]['Points'],
+                'Comment Count' => count($this->ContributorComments[$contributor]),
             ];
         }
         $this->metaArray = $metaArray;
@@ -429,6 +443,15 @@ class GitLogStats
     protected function getIssuePoints($issueId)
     {
         return $this->issue_data[$issueId]['Size'];
+    }
+
+    private function gatherCommentStats()
+    {
+        foreach ($this->contributors as $contributor) {
+            $commentScraper = new CommentScraper($contributor, $this->date_range['year'], $this->date_range['week']);
+            $commentScraper->fetchAll();
+            $this->ContributorComments[$contributor] = $commentScraper->getComments();
+        }
     }
 
     /**

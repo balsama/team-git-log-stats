@@ -10,3 +10,6 @@ drupal90:
 drupal91:
     url: 'https://git.drupal.org/project/drupal.git'
     branch: 9.1.x
+drupal92:
+    url: 'https://git.drupal.org/project/drupal.git'
+    branch: 9.2.x

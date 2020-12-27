@@ -8,7 +8,6 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Balsama\DoStats\GitLogStats;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Style\SymfonyStyle;
-use Symfony\Component\Console\Helper\TableSeparator;
 
 class StatsCommand extends Command
 {
@@ -20,7 +19,7 @@ class StatsCommand extends Command
      * @param InputInterface $input
      * @param OutputInterface $output
      *
-     * @return void
+     * @return int
      */
     protected function execute(InputInterface $input, OutputInterface $output)
     {
@@ -28,7 +27,9 @@ class StatsCommand extends Command
         $this->validateOptions($input, $output);
         $update = new GitLogStats($input->getOptions());
 
-        $this->summarizeConfig($update->getConfig());
+        if (!$input->getOption('log-only')) {
+            $this->summarizeConfig($update->getConfig());
+        }
 
         $update->execute();
 
@@ -36,10 +37,7 @@ class StatsCommand extends Command
 
         $output->write($csv);
 
-        $foo = 21;
-
-
-        return;
+        return 0;
     }
 
     /**
@@ -90,6 +88,18 @@ class StatsCommand extends Command
             null,
             InputOption::VALUE_NONE,
             "Use the config in /config/date.range.yml."
+        );
+        $this->addOption(
+            'contributors-file-name',
+            null,
+            InputOption::VALUE_REQUIRED,
+            'Use the specified contributors file instead of `contributors.yml`'
+        );
+        $this->addOption(
+            'log-only',
+            'l',
+            InputOption::VALUE_NONE,
+            'Don\'t output anything but the results',
         );
     }
 

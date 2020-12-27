@@ -4,7 +4,8 @@
     "type": "project",
     "bin": ["bin/report"],
     "require": {
-        "guzzlehttp/guzzle": "^6.3",
+        "balsama/fetch": "^0",
+        "guzzlehttp/guzzle": "^7",
         "mathieuviossat/arraytotexttable": "~1.0.0",
         "gitonomy/gitlib": "^1.0",
         "symfony/filesystem": "^5",

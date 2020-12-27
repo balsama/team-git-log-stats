@@ -8,6 +8,7 @@ format in order to parse the logs. That is:
 
 ```
 $ ./bin/report [options]
+$ ./bin/stats --year=2020 --week=41 --no-interaction --log-only 
 ```
 
 1. Run `composer install`
