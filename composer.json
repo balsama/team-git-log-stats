@@ -12,7 +12,9 @@
         "symfony/process": "^5",
         "symfony/console": "^5",
         "symfony/yaml": "^5",
-        "php": "^7.4"
+        "php": "^7.4",
+        "google/apiclient": "^2.0",
+        "ext-json": "*"
     },
     "license": "GPL-2.0-or-later",
     "minimum-stability": "dev",

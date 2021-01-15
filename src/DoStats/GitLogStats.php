@@ -175,6 +175,11 @@ class GitLogStats
         return $this->formatAllIssueData();
     }
 
+    public function getMetaArray()
+    {
+        return $this->metaArray;
+    }
+
     /**
      * @return string
      *   A summary of issues and story points.
@@ -421,7 +426,7 @@ class GitLogStats
                     'Y-m-d',
                     strtotime($this->date_range['year'] . 'W' . $this->date_range['week'])
                 ),
-                'Name' => $contributor,
+                'Name' => $contributorInfo->getRealName(),
                 'Username' => $contributorInfo->getUsername(),
                 'Drupal Core Assignment' => $contributorInfo->getDrupalCoreAssignment(),
                 'Primary Assignment' => $contributorInfo->getPrimaryAssignment(),
@@ -676,7 +681,8 @@ class GitLogStats
     protected function parseConfig()
     {
         $yaml = new Yaml\Yaml();
-        $contributorInfoArray = $yaml::parseFile('./config/contributors.yml');
+        $contributorsFileName = ($this->arguments['contributors-file-name']) ? $this->arguments['contributors-file-name'] : 'contributors.yml';
+        $contributorInfoArray = $yaml::parseFile('./config/' . $contributorsFileName);
         foreach ($contributorInfoArray as $contributorInfo) {
             $this->contributorInfo[$contributorInfo['username']] = new Contributor(
                 $contributorInfo['username'],

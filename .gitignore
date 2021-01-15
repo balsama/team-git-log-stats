@@ -3,3 +3,5 @@ composer.phar
 /repos/
 log.txt
 /.idea
+token.json
+credentials.json
