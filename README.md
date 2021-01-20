@@ -6,6 +6,11 @@ format in order to parse the logs. That is:
 
 ## Usage
 
+I'm not currently using the Console commands. See `scripts/send-to-sheets.php` for
+how it's currently being used. Everything after this is outdated. 
+
+--
+
 ```
 $ ./bin/report [options]
 $ ./bin/stats --year=2020 --week=41 --no-interaction --log-only 

@@ -70,13 +70,13 @@ $spreadsheetId = '1jZLrNhdn3Fdi_tjGp4Kq0J3vLfyzzlWU6S5aiN8XFkA';
 $range = 'All!A1:G';
 
 $options = [
-    'year' => 2020,
-    'week' => 42,
+    'year' => $argv[1],
+    'week' => $argv[2],
     'quarter' => null,
     'logo-only' => true,
     'no-interaction' => true,
     'use-date-config' => false,
-    'contributors-file-name' => 'contributors-2019-q1.yml',
+    'contributors-file-name' => $argv[3],
 ];
 $update = new GitLogStats($options);
 $update->execute();

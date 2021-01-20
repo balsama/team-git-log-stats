@@ -35,11 +35,13 @@ class CommentScraper
         $this->setStartAndEndDate($year, $week);
     }
 
-    public function fetch() {
+    public function fetch()
+    {
         return Fetch::fetch($this->url);
     }
 
-    public function fetchAll() {
+    public function fetchAll()
+    {
         $commentResponse = $this->fetch();
         if ($commentResponse->next) {
             $this->url = $this->fixUrl($commentResponse->next);
@@ -59,20 +61,19 @@ class CommentScraper
         $this->fetchAll();
     }
 
-    public function continue($firstTimestamp, $lastTimestamp, $weekStart, $weekEnd, $potentialComments) {
-
-    }
-
-    private function validateUsername($username) {
+    private function validateUsername($username)
+    {
         $this->username = $username;
         return true;
     }
 
-    private function buildUrl() {
+    private function buildUrl()
+    {
         return $this->baseUrl . http_build_query($this->params);
     }
 
-    private function setStartAndEndDate($year, $week) {
+    private function setStartAndEndDate($year, $week)
+    {
         if (empty($year)) {
             $year = date('Y');
         }
@@ -84,7 +85,8 @@ class CommentScraper
         $this->weekEnd = $dto->modify('+6 days')->format('U');
     }
 
-    private function fixUrl($url) {
+    private function fixUrl($url)
+    {
         return str_replace('/comment?', '/comment.json?', $url);
     }
 }

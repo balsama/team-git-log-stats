@@ -421,11 +421,10 @@ class GitLogStats
                     'You must supply a year and a week to generate the meta array.'
                 );
             }
+            $dto = new \DateTime();
+            $date = $dto->setISODate($this->date_range['year'], $this->date_range['week'])->format('Y-m-d');
             $metaArray[$contributor] = [
-                'Week (YYYY-MM-DD)' => date(
-                    'Y-m-d',
-                    strtotime($this->date_range['year'] . 'W' . $this->date_range['week'])
-                ),
+                'Week (YYYY-MM-DD)' => $date,
                 'Name' => $contributorInfo->getRealName(),
                 'Username' => $contributorInfo->getUsername(),
                 'Drupal Core Assignment' => $contributorInfo->getDrupalCoreAssignment(),
@@ -452,11 +451,14 @@ class GitLogStats
 
     private function gatherCommentStats()
     {
+        $this->instantiateProgressBar(count($this->contributors), 'Fetching comments for contributors');
         foreach ($this->contributors as $contributor) {
+            $this->updateProgressBarWithDetail($contributor);
             $commentScraper = new CommentScraper($contributor, $this->date_range['year'], $this->date_range['week']);
             $commentScraper->fetchAll();
             $this->ContributorComments[$contributor] = $commentScraper->getComments();
         }
+        $this->progressBar->finish();
     }
 
     /**

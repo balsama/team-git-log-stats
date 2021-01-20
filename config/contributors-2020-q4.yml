@@ -6,7 +6,7 @@ effulgentsia:
   username: effulgentsia
   real name: Alex Bronstein
   primary assignment: Automatic Updates
-  assigned to core: 1
+  assigned to core: 0.65
 phenaproxima:
   username: phenaproxima
   real name: Adam Hoenich
@@ -15,8 +15,8 @@ phenaproxima:
 tim.plunkett:
   username: tim.plunkett
   real name: Tim Plunkett
-  primary assignment: D10
-  assigned to core: 1
+  primary assignment: Drupal10
+  assigned to core: 0.8
 tedbow:
   username: tedbow
   real name: Ted Bowman
@@ -25,22 +25,22 @@ tedbow:
 DyanneNova:
   username: DyanneNova
   real name: Emilie Nouveau
-  primary assignment: Claro
+  primary assignment: Automatic Updates
   assigned to core: 1
 Wim Leers:
   username: Wim Leers
   real name: Wim Leers
   primary assignment: AMA
-  assigned to core: 0
+  assigned to core: 0.2
 gabesullice:
   username: gabesullice
   real name: Gabe Sullice
-  primary assignment: AMA
-  assigned to core: 0
+  primary assignment: JS Menu
+  assigned to core: 1
 bnjmnm:
   username: bnjmnm
   real name: Ben Mullins
-  primary assignment: Claro
+  primary assignment: Drupal10
   assigned to core: 1
 huzooka:
   username: huzooka
@@ -55,7 +55,7 @@ TravisCarden:
 lauriii:
   username: lauriii
   real name: Lauri Eskola
-  primary assignment: Claro
+  primary assignment: Drupal10
   assigned to core: 1
 xjm:
   username: xjm
@@ -65,5 +65,5 @@ xjm:
 zrpnr:
   username: zrpnr
   real name: Peter Weber
-  primary assignment: AMA
+  primary assignment: Drupal10
   assigned to core: 0
