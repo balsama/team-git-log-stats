@@ -11,12 +11,12 @@ phenaproxima:
   username: phenaproxima
   real name: Adam Hoenich
   primary assignment: Automatic Updates
-  assigned to core: 0.5
+  assigned to core: 0.8
 tim.plunkett:
   username: tim.plunkett
   real name: Tim Plunkett
   primary assignment: Drupal10
-  assigned to core: 0.6
+  assigned to core: 0.8
 tedbow:
   username: tedbow
   real name: Ted Bowman
@@ -35,7 +35,7 @@ Wim Leers:
 gabesullice:
   username: gabesullice
   real name: Gabe Sullice
-  primary assignment: JS Menu
+  primary assignment: non-Acquia
   assigned to core: 0
 bnjmnm:
   username: bnjmnm
@@ -50,12 +50,12 @@ huzooka:
 TravisCarden:
   username: TravisCarden
   real name: Travis Carden
-  primary assignment: ORCA
-  assigned to core: 0.4
+  primary assignment: Automatic updates
+  assigned to core: 0.6
 lauriii:
   username: lauriii
   real name: Lauri Eskola
-  primary assignment: Starterkit
+  primary assignment: CKE5
   assigned to core: 1
 xjm:
   username: xjm
@@ -65,5 +65,5 @@ xjm:
 zrpnr:
   username: zrpnr
   real name: Peter Weber
-  primary assignment: Drupal10
-  assigned to core: 0
+  primary assignment: CKE5
+  assigned to core: 1

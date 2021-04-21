@@ -63,6 +63,7 @@ function getClient()
 
 
 // Get the API client and construct the service object.
+// @usage php ./scripts/send-to-sheets.php 2021 01 contributors-2021-q1.yml
 $client = getClient();
 $service = new Google_Service_Sheets($client);
 
