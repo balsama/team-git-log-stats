@@ -81,6 +81,13 @@ class GitLogStats
      */
     private array $metaArray;
 
+    /**
+     * Comments per contributor.
+     *
+     * @var array[]
+     */
+    private array $ContributorComments;
+
     /* @var int */
     protected $apiRequestCount = 0;
 
@@ -131,12 +138,17 @@ class GitLogStats
         $this->arguments = $arguments;
         $this->setupTools();
         $this->parseConfig();
+    }
+
+    public function execute()
+    {
         $this->initProgressBar();
         $this->cloneAndUpdateRepos();
         $this->generateLog();
         $this->gatherAllIssueData();
         $this->calculateContributorPoints();
         $this->fillEmptyUsers();
+        $this->gatherCommentStats();
         if ((array_key_exists('year', $this->date_range)) || (array_key_exists('week', $this->date_range))) {
             $this->makeMetaArray();
         }
@@ -163,6 +175,11 @@ class GitLogStats
         return $this->formatAllIssueData();
     }
 
+    public function getMetaArray()
+    {
+        return $this->metaArray;
+    }
+
     /**
      * @return string
      *   A summary of issues and story points.
@@ -170,6 +187,11 @@ class GitLogStats
     public function getSummary()
     {
         return $this->summarizeIssueData();
+    }
+
+    public function getContributorComments()
+    {
+        return $this->ContributorComments;
     }
 
     /**
@@ -395,21 +417,21 @@ class GitLogStats
             /* @var $contributorInfo Contributor */
             $contributorInfo = $this->contributorInfo[$contributor];
             if ((!array_key_exists('year', $this->date_range)) || (!array_key_exists('week', $this->date_range))) {
-                throw new \http\Exception\InvalidArgumentException(
+                throw new InvalidArgumentException(
                     'You must supply a year and a week to generate the meta array.'
                 );
             }
+            $dto = new \DateTime();
+            $date = $dto->setISODate($this->date_range['year'], $this->date_range['week'])->format('Y-m-d');
             $metaArray[$contributor] = [
-                'Week (YYYY-MM-DD)' => date(
-                    'Y-m-d',
-                    strtotime($this->date_range['year'] . 'W' . $this->date_range['week'])
-                ),
-                'Name' => $contributor,
+                'Week (YYYY-MM-DD)' => $date,
+                'Name' => $contributorInfo->getRealName(),
                 'Username' => $contributorInfo->getUsername(),
                 'Drupal Core Assignment' => $contributorInfo->getDrupalCoreAssignment(),
                 'Primary Assignment' => $contributorInfo->getPrimaryAssignment(),
                 'Issues Closed' => $this->contributorPoints[$contributor]['Issue Count'],
                 'Points Estimate' => $this->contributorPoints[$contributor]['Points'],
+                'Comment Count' => count($this->ContributorComments[$contributor]),
             ];
         }
         $this->metaArray = $metaArray;
@@ -425,6 +447,18 @@ class GitLogStats
     protected function getIssuePoints($issueId)
     {
         return $this->issue_data[$issueId]['Size'];
+    }
+
+    private function gatherCommentStats()
+    {
+        $this->instantiateProgressBar(count($this->contributors), 'Fetching comments for contributors');
+        foreach ($this->contributors as $contributor) {
+            $this->updateProgressBarWithDetail($contributor);
+            $commentScraper = new CommentScraper($contributor, $this->date_range['year'], $this->date_range['week']);
+            $commentScraper->fetchAll();
+            $this->ContributorComments[$contributor] = $commentScraper->getComments();
+        }
+        $this->progressBar->finish();
     }
 
     /**
@@ -649,7 +683,8 @@ class GitLogStats
     protected function parseConfig()
     {
         $yaml = new Yaml\Yaml();
-        $contributorInfoArray = $yaml::parseFile('./config/contributors.yml');
+        $contributorsFileName = ($this->arguments['contributors-file-name']) ? $this->arguments['contributors-file-name'] : 'contributors.yml';
+        $contributorInfoArray = $yaml::parseFile('./config/' . $contributorsFileName);
         foreach ($contributorInfoArray as $contributorInfo) {
             $this->contributorInfo[$contributorInfo['username']] = new Contributor(
                 $contributorInfo['username'],
@@ -666,7 +701,10 @@ class GitLogStats
         $this->config = [
             'committers' => $this->contributors,
             'repos_to_scan' => $this->repos_to_scan,
+            'date_range' => $this->date_range,
         ];
+
+        $this->reportConfig();
     }
 
     /**
@@ -793,6 +831,12 @@ class GitLogStats
             }
         }
         return -1;
+    }
+
+    private function reportConfig()
+    {
+        // TBD
+        $foo =- 21;
     }
 
     private function array2csv($data, $delimiter = ',', $enclosure = '"', $escape_char = "\\")

@@ -1,0 +1,69 @@
+# Copy this file to config/contributors.yml and make changes as necessary.
+#
+# A list of Drupal.Org usernames of contributors you want to search Git logs
+# for.
+effulgentsia:
+  username: effulgentsia
+  real name: Alex Bronstein
+  primary assignment: Automatic Updates
+  assigned to core: 0.6
+phenaproxima:
+  username: phenaproxima
+  real name: Adam Hoenich
+  primary assignment: Automatic Updates
+  assigned to core: 0.5
+tim.plunkett:
+  username: tim.plunkett
+  real name: Tim Plunkett
+  primary assignment: Drupal10
+  assigned to core: 0.6
+tedbow:
+  username: tedbow
+  real name: Ted Bowman
+  primary assignment: Automatic Updates
+  assigned to core: 1
+DyanneNova:
+  username: DyanneNova
+  real name: Emilie Nouveau
+  primary assignment: non-Acquia
+  assigned to core: 0
+Wim Leers:
+  username: Wim Leers
+  real name: Wim Leers
+  primary assignment: AMA
+  assigned to core: 0.2
+gabesullice:
+  username: gabesullice
+  real name: Gabe Sullice
+  primary assignment: JS Menu
+  assigned to core: 0
+bnjmnm:
+  username: bnjmnm
+  real name: Ben Mullins
+  primary assignment: Drupal 10
+  assigned to core: 1
+huzooka:
+  username: huzooka
+  real name: Zoltan Horvath
+  primary assignment: AMA
+  assigned to core: 0
+TravisCarden:
+  username: TravisCarden
+  real name: Travis Carden
+  primary assignment: ORCA
+  assigned to core: 0.4
+lauriii:
+  username: lauriii
+  real name: Lauri Eskola
+  primary assignment: Starterkit
+  assigned to core: 1
+xjm:
+  username: xjm
+  real name: Jess Myrbo
+  primary assignment: Drupal10
+  assigned to core: 1
+zrpnr:
+  username: zrpnr
+  real name: Peter Weber
+  primary assignment: Drupal10
+  assigned to core: 0

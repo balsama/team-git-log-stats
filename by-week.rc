@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
-./bin/report --week 26 --year 2019 > ~/team-stats--2019-q2--by-week.txt
-./bin/report --week 27 --year 2019 >> ~/team-stats--2019-q2--by-week.txt
-./bin/report --week 28 --year 2019 >> ~/team-stats--2019-q2--by-week.txt
-./bin/report --week 29 --year 2019 >> ~/team-stats--2019-q2--by-week.txt
-# ...
+
+i="1"
+
+while [ $i -lt 13 ]
+do
+php ./scripts/send-to-sheets.php 2021 ${i} contributors-2021-q1.yml
+i=$[$i+1]
+done
