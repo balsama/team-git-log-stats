@@ -1,0 +1,9 @@
+# Copy this file to config/contributors.yml and make changes as necessary.
+#
+# A list of Drupal.Org usernames of contributors you want to search Git logs
+# for.
+catch:
+  username: catch
+  real name: Nathaniel Catchpole
+  primary assignment: Committing shit
+  assigned to core: 1

@@ -31,9 +31,16 @@ class StatsCommand extends Command
             $this->summarizeConfig($update->getConfig());
         }
 
-        $update->execute();
+        $group_count = $update->execute();
 
-        $csv = $update->getCsv();
+        if ($input->getOption('group-results')) {
+            $this->io->writeln($group_count);
+            return 0;
+        } else {
+            $totalIssues = $update->getCsv();
+            $output->write($totalIssues);
+            return 0;
+        }
 
         $output->write($csv);
 
@@ -100,6 +107,12 @@ class StatsCommand extends Command
             'l',
             InputOption::VALUE_NONE,
             'Don\'t output anything but the results',
+        );
+        $this->addOption(
+            'group-results',
+            'gr',
+            InputOption::VALUE_NONE,
+            'Count the number of total issues that were credited instead of the individual committers.',
         );
     }
 
@@ -169,8 +182,6 @@ class StatsCommand extends Command
         $this->io->definitionList(
             [array_keys($config['date_range'])[0] => $config['date_range'][array_keys($config['date_range'])[0]]],
             [array_keys($config['date_range'])[1] => $config['date_range'][array_keys($config['date_range'])[1]]],
-            [array_keys($config['date_range'])[2] => $config['date_range'][array_keys($config['date_range'])[2]]],
-            [array_keys($config['date_range'])[3] => $config['date_range'][array_keys($config['date_range'])[3]]],
         );
         $this->io->title('Contributors');
         $this->io->listing($config['committers']);

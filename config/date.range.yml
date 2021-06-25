@@ -26,5 +26,5 @@
 #
 # You can also pass a year plus a week or quarter option when calling this
 # script which will override any option set here. See `by-week.rc` for examples.
-quarter: 3
-year: 2019
+after: june 2020
+before: july 2021

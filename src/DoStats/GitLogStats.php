@@ -145,7 +145,10 @@ class GitLogStats
         $this->initProgressBar();
         $this->cloneAndUpdateRepos();
         $this->generateLog();
-        $this->gatherAllIssueData();
+        $count = $this->gatherAllIssueData();
+        if ($count) {
+            return $count;
+        }
         $this->calculateContributorPoints();
         $this->fillEmptyUsers();
         $this->gatherCommentStats();
@@ -215,6 +218,14 @@ class GitLogStats
         }
         $csv = $this->array2csv($data);
         return $csv;
+    }
+
+    public function getTotalIssuesCount($stripHeaders = true)
+    {
+
+        $totalIssuesCredited = count($this->issue_numbers);
+
+        return $totalIssuesCredited;
     }
 
     /**
@@ -306,6 +317,12 @@ class GitLogStats
     {
         $this->issue_numbers = $this->getIssueNumbers($this->log);
         $this->instantiateProgressBar(count($this->issue_numbers), 'Fetching data about issues');
+
+        if ($this->arguments['group-results'] === true) {
+            $unique_issue_numbers = array_unique($this->issue_numbers);
+            return count($unique_issue_numbers);
+        }
+
         foreach ($this->issue_numbers as $issue_number) {
             $this->updateProgressBarWithDetail('Issue #' . $issue_number);
             $this->issue_data[$issue_number] = $this->getIssueData($issue_number);
