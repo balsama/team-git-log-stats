@@ -683,7 +683,7 @@ class GitLogStats
     protected function parseConfig()
     {
         $yaml = new Yaml\Yaml();
-        $contributorsFileName = ($this->arguments['contributors-file-name']) ? $this->arguments['contributors-file-name'] : 'contributors.yml';
+        $contributorsFileName = ($this->arguments['contributors-file-name']) ? $this->arguments['contributors-file-name'] : 'contributors-2021-q2.yml';
         $contributorInfoArray = $yaml::parseFile('./config/' . $contributorsFileName);
         foreach ($contributorInfoArray as $contributorInfo) {
             $this->contributorInfo[$contributorInfo['username']] = new Contributor(
