@@ -353,7 +353,7 @@ class GitLogStats
                 'Title' => $this->truncate($body->title, 100),
                 'ID' => $body->nid,
                 'Category' => 'Other',
-                'Size' => $this->mapSizeFromCommentCount(count($body->comments)),
+                'Size' => $this->mapSizeFromComments($body->comments),
                 'Project' => 'unknown',
             ];
         }
@@ -362,7 +362,7 @@ class GitLogStats
             'Title' => $this->truncate($body->title, 100),
             'ID' => $body->nid,
             'Category' => $this->mapCategory($body->field_issue_category),
-            'Size' => $this->mapSizeFromCommentCount(count($body->comments)),
+            'Size' => $this->mapSizeFromComments($body->comments),
             'Project' => $body->field_project->machine_name,
             'Contributors' => implode(', ', $truncatedContributors),
         ];
@@ -590,14 +590,15 @@ class GitLogStats
      * Attempts to determine the "size" (effort/points) of an issue based on the
      * number of comments it has.
      *
-     * @param int $count
-     *   The numbed of comments on an issue.
+     * @param object $comments
+     *   The comments on an issue.
      *
      * @return int
      *   The mapped "size".
      */
-    protected function mapSizeFromCommentCount($count)
+    protected function mapSizeFromComments($comments)
     {
+        $count = count((array) $comments);
         switch ($count) {
             case ($count > 100):
                 $size = 21;
